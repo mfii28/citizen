@@ -15,8 +15,8 @@ export default function VisionPage() {
         </p>
         <p className="mt-4 text-ocean-600 dark:text-ocean-400">
           We envision a constituency where issues are reported and resolved instead of quietly endured, where
-          volunteering is a normal part of growing up, and where the gains of one generation's civic education
-          are visible in the next generation's communities.
+          volunteering is a normal part of growing up, and where the gains of one generation&apos;s civic education
+          are visible in the next generation&apos;s communities.
         </p>
       </div>
     </section>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { initiateDonation } from "@/lib/actions";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
 
@@ -20,29 +19,15 @@ export function DonationForm({ initiativeId }: { initiativeId?: string }) {
   const [method, setMethod] = useState<(typeof METHODS)[number]["value"]>("MOBILE_MONEY");
   const [anonymous, setAnonymous] = useState(false);
   const [corporate, setCorporate] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
 
   const finalAmount = customAmount ? Number(customAmount) : amount;
 
   return (
     <form
-      action={(formData) => {
-        formData.set("amount", String(finalAmount));
-        formData.set("frequency", frequency);
-        formData.set("method", method);
-        formData.set("anonymous", anonymous ? "true" : "");
-        formData.set("corporate", corporate ? "true" : "");
-        if (initiativeId) formData.set("initiativeId", initiativeId);
-
-        startTransition(async () => {
-          const res = await initiateDonation(formData);
-          if (res.ok && res.authorizationUrl) {
-            window.location.href = res.authorizationUrl;
-            return;
-          }
-          setResult({ ok: res.ok, message: res.ok ? res.message ?? "Thank you." : res.message });
-        });
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSent(true);
       }}
       className="space-y-6"
     >
@@ -111,9 +96,13 @@ export function DonationForm({ initiativeId }: { initiativeId?: string }) {
           ))}
         </div>
         <p className="mt-1.5 text-xs text-ocean-500 dark:text-ocean-400">
-          Mobile Money and Card are processed securely via Paystack, covering MTN, AirtelTigo, and Telecel.
+          This is a demo site — no payment provider is connected, so nothing is actually charged.
         </p>
       </div>
+
+      {initiativeId && (
+        <p className="text-xs text-ocean-500 dark:text-ocean-400">Donating to initiative: {initiativeId}</p>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <input name="donorName" placeholder="Your name (optional)" className="rounded-lg border border-ocean-200 px-3 py-2.5 text-sm dark:border-ocean-700 dark:bg-ocean-900" />
@@ -132,15 +121,15 @@ export function DonationForm({ initiativeId }: { initiativeId?: string }) {
       </div>
 
       <Button type="submit" size="lg" className="w-full">
-        {pending ? "Processing…" : `Donate GHS ${finalAmount || 0}${frequency === "MONTHLY" ? " / month" : ""}`}
+        {`Donate GHS ${finalAmount || 0}${frequency === "MONTHLY" ? " / month" : ""}`}
       </Button>
 
-      {result && (
-        <div className={cn("rounded-lg p-4 text-sm", result.ok ? "bg-leaf-400/10 text-leaf-600" : "bg-red-50 text-red-700")}>
-          {result.message}
-          {method === "BANK_TRANSFER" && result.ok && (
+      {sent && (
+        <div className="rounded-lg bg-leaf-400/10 p-4 text-sm text-leaf-600">
+          Thank you! This is a demo site, so no payment was actually processed.
+          {method === "BANK_TRANSFER" && (
             <p className="mt-2 font-mono text-xs">
-              Acc. Name: The Citizen Project · Acc. No: 0000000000 · Bank: [Add bank details] · Use your reference as the transfer narration.
+              Acc. Name: The Citizen Project · Acc. No: 0000000000 · Bank: [Add bank details] · Use your name as the transfer narration.
             </p>
           )}
         </div>

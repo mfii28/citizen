@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { donations, expenditures, initiatives } from "@/lib/mock-data";
 import { SectionHeading, Card } from "@/components/ui";
 import { FundAllocationChart } from "@/components/charts/fund-allocation-chart";
 import { DonationsTrendChart } from "@/components/charts/donations-trend-chart";
@@ -7,20 +7,16 @@ import { formatGHS } from "@/lib/utils";
 import { format } from "date-fns";
 
 export const metadata: Metadata = { title: "Transparency Dashboard" };
-export const dynamic = "force-dynamic";
 
-export default async function TransparencyPage() {
-  const [donations, expenditures, activeCount] = await Promise.all([
-    prisma.donation.findMany({ where: { status: "SUCCESS" } }),
-    prisma.expenditure.findMany(),
-    prisma.initiative.count({ where: { status: "ACTIVE" } }),
-  ]);
+export default function TransparencyPage() {
+  const successfulDonations = donations.filter((d) => d.status === "SUCCESS");
+  const activeCount = initiatives.filter((i) => i.status === "ACTIVE").length;
 
-  const totalRaised = donations.reduce((sum, d) => sum + Number(d.amount), 0);
-  const totalSpent = expenditures.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalRaised = successfulDonations.reduce((sum, d) => sum + d.amount, 0);
+  const totalSpent = expenditures.reduce((sum, e) => sum + e.amount, 0);
 
   const allocationMap = new Map<string, number>();
-  for (const e of expenditures) allocationMap.set(e.category, (allocationMap.get(e.category) ?? 0) + Number(e.amount));
+  for (const e of expenditures) allocationMap.set(e.category, (allocationMap.get(e.category) ?? 0) + e.amount);
   const allocation = Array.from(allocationMap, ([name, value]) => ({ name: name.charAt(0) + name.slice(1).toLowerCase(), value }));
 
   const monthMap = new Map<string, { raised: number; spent: number }>();
@@ -30,11 +26,11 @@ export default async function TransparencyPage() {
     entry[key] += amount;
     monthMap.set(label, entry);
   };
-  donations.forEach((d) => bump(d.createdAt, "raised", Number(d.amount)));
-  expenditures.forEach((e) => bump(e.date, "spent", Number(e.amount)));
+  successfulDonations.forEach((d) => bump(d.createdAt, "raised", d.amount));
+  expenditures.forEach((e) => bump(e.date, "spent", e.amount));
   const trend = Array.from(monthMap, ([month, v]) => ({ month, ...v }));
 
-  const recentDonors = [...donations].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 6);
+  const recentDonors = [...successfulDonations].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 6);
 
   const kpis = [
     { label: "Total donations received", value: formatGHS(totalRaised) },
@@ -49,7 +45,7 @@ export default async function TransparencyPage() {
         <SectionHeading
           eyebrow="Full visibility"
           title="Transparency Dashboard"
-          description="Real numbers, updated as donations and expenditures are recorded — no aggregated PR figures."
+          description="Illustrative figures for this demo site, shown in the same format the live dashboard would use."
         />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -78,14 +74,14 @@ export default async function TransparencyPage() {
             {recentDonors.map((d) => (
               <Card key={d.id} className="flex items-center justify-between p-4 text-sm">
                 <span className="text-ocean-800 dark:text-ocean-200">{d.anonymous ? "Anonymous supporter" : d.donorName || "Supporter"}</span>
-                <span className="font-mono text-ocean-500 dark:text-ocean-400">{formatGHS(Number(d.amount))}</span>
+                <span className="font-mono text-ocean-500 dark:text-ocean-400">{formatGHS(d.amount)}</span>
               </Card>
             ))}
           </div>
         </div>
 
         <p className="mt-10 text-xs text-ocean-500 dark:text-ocean-400">
-          Detailed financial statements, annual reports, and CSV/PDF export are planned for Phase 2 of this dashboard.
+          This dashboard runs entirely on static demo data — there is no live database behind it.
         </p>
       </div>
     </section>

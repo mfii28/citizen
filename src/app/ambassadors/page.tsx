@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { ambassadorLeaderboard } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge, Button } from "@/components/ui";
 import { Award, Users, Trophy } from "lucide-react";
 
 export const metadata: Metadata = { title: "Ambassadors & Leaderboard" };
-export const dynamic = "force-dynamic";
 
 function badgesFor(hours: number): string[] {
   const badges: string[] = [];
@@ -14,21 +13,8 @@ function badgesFor(hours: number): string[] {
   return badges;
 }
 
-export default async function AmbassadorsPage() {
-  const hoursByUser = await prisma.volunteerHour.groupBy({
-    by: ["userId"],
-    where: { approved: true },
-    _sum: { hours: true },
-  });
-
-  const userIds = hoursByUser.map((h) => h.userId);
-  const users = await prisma.user.findMany({ where: { id: { in: userIds } } });
-  const userMap = new Map(users.map((u) => [u.id, u]));
-
-  const leaderboard = hoursByUser
-    .map((h) => ({ user: userMap.get(h.userId), hours: h._sum.hours ?? 0 }))
-    .filter((row) => row.user)
-    .sort((a, b) => b.hours - a.hours);
+export default function AmbassadorsPage() {
+  const leaderboard = [...ambassadorLeaderboard].sort((a, b) => b.hours - a.hours);
 
   return (
     <section className="section-y">
@@ -53,10 +39,10 @@ export default async function AmbassadorsPage() {
         <h2 className="mt-12 font-display text-lg font-semibold text-ocean-950 dark:text-white">Volunteer hours leaderboard</h2>
         <div className="mt-4 space-y-2">
           {leaderboard.map((row, idx) => (
-            <Card key={row.user!.id} className="flex items-center justify-between p-4">
+            <Card key={row.id} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <span className="w-6 font-mono text-sm text-ocean-400">#{idx + 1}</span>
-                <span className="font-medium text-ocean-900 dark:text-white">{row.user!.name}</span>
+                <span className="font-medium text-ocean-900 dark:text-white">{row.name}</span>
               </div>
               <div className="flex items-center gap-2">
                 {badgesFor(row.hours).map((b) => <Badge key={b} tone="gold">{b}</Badge>)}
@@ -67,9 +53,6 @@ export default async function AmbassadorsPage() {
           {leaderboard.length === 0 && <p className="text-sm text-ocean-500">No approved volunteer hours logged yet.</p>}
         </div>
 
-        <p className="mt-6 text-sm text-ocean-500 dark:text-ocean-400">
-          Signed-in volunteers can download their own certificate from <a href="/account" className="font-semibold text-ocean-700 dark:text-ocean-300">their account page</a> once they have approved hours.
-        </p>
         <Button href="/contact" size="lg" className="mt-6 w-full">Register your interest as an ambassador</Button>
       </div>
     </section>

@@ -1,6 +1,6 @@
 import nextDynamic from "next/dynamic";
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { surveyReports } from "@/lib/mock-data";
 import { resolveCoordinates } from "@/lib/communities";
 import { SectionHeading } from "@/components/ui";
 import type { MapPin } from "@/components/community-map";
@@ -27,8 +27,8 @@ function urgencyTone(urgency: string): MapPin["tone"] {
   return "medium";
 }
 
-export default async function CommunityMapPage() {
-  const reports = await prisma.surveyReport.findMany({ orderBy: { createdAt: "desc" } });
+export default function CommunityMapPage() {
+  const reports = [...surveyReports].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const pins: MapPin[] = [];
   const unplaced: typeof reports = [];
@@ -71,9 +71,8 @@ export default async function CommunityMapPage() {
 
         {unplaced.length > 0 && (
           <p className="mt-4 text-xs text-ocean-500 dark:text-ocean-400">
-            {unplaced.length} report{unplaced.length > 1 ? "s" : ""} from a community we don't have coordinates for
-            yet aren&apos;t shown — add the community to <code>src/lib/communities.ts</code>, or capture GPS
-            directly on the survey form.
+            {unplaced.length} report{unplaced.length > 1 ? "s" : ""} from a community we don&apos;t have coordinates for
+            yet aren&apos;t shown — add the community to <code>src/lib/communities.ts</code>.
           </p>
         )}
       </div>

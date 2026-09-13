@@ -1,25 +1,19 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { initiatives, surveyReports, ambassadorLeaderboard } from "@/lib/mock-data";
 import { SectionHeading, Card } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Impact Dashboard" };
-export const dynamic = "force-dynamic";
 
-export default async function ImpactPage() {
-  const [completed, active, upcoming, initiatives, surveyCommunities, volunteerAgg] = await Promise.all([
-    prisma.initiative.count({ where: { status: "COMPLETED" } }),
-    prisma.initiative.count({ where: { status: "ACTIVE" } }),
-    prisma.initiative.count({ where: { status: "UPCOMING" } }),
-    prisma.initiative.findMany({ select: { sdgTags: true, beneficiaries: true, volunteersInvolved: true, location: true } }),
-    prisma.surveyReport.findMany({ select: { community: true }, distinct: ["community"] }),
-    prisma.volunteerHour.aggregate({ _sum: { hours: true } }),
-  ]);
+export default function ImpactPage() {
+  const completed = initiatives.filter((i) => i.status === "COMPLETED").length;
+  const active = initiatives.filter((i) => i.status === "ACTIVE").length;
+  const upcoming = initiatives.filter((i) => i.status === "UPCOMING").length;
 
   const sdgSet = new Set(initiatives.flatMap((i) => i.sdgTags));
   const volunteersInvolved = initiatives.reduce((sum, i) => sum + i.volunteersInvolved, 0);
-  const trackedHours = volunteerAgg._sum.hours ?? 0;
+  const trackedHours = ambassadorLeaderboard.reduce((sum, row) => sum + row.hours, 0);
   const communityLocations = new Set([
-    ...surveyCommunities.map((s) => s.community.toLowerCase()),
+    ...surveyReports.map((s) => s.community.toLowerCase()),
     ...initiatives.map((i) => i.location).filter(Boolean).map((l) => (l as string).toLowerCase()),
   ]);
   const beneficiaryNotes = initiatives.map((i) => i.beneficiaries).filter(Boolean) as string[];

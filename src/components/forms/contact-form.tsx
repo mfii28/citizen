@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { submitContactMessage } from "@/lib/actions";
+import { useState } from "react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -9,16 +8,13 @@ const inputClass =
   "w-full rounded-lg border border-ocean-200 px-3 py-2.5 text-sm focus:border-ocean-500 dark:border-ocean-700 dark:bg-ocean-900";
 
 export function ContactForm() {
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
 
   return (
     <form
-      action={(formData) => {
-        startTransition(async () => {
-          const res = await submitContactMessage(formData);
-          setResult({ ok: res.ok, message: res.message ?? "" });
-        });
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSent(true);
       }}
       className="space-y-4"
     >
@@ -29,10 +25,10 @@ export function ContactForm() {
       <input name="phone" placeholder="Phone (optional)" className={inputClass} />
       <input name="subject" required placeholder="Subject" className={inputClass} />
       <textarea name="message" required rows={5} placeholder="Your message" className={inputClass} />
-      <Button type="submit" size="lg" className="w-full">{pending ? "Sending…" : "Send message"}</Button>
-      {result && (
-        <div className={cn("rounded-lg p-4 text-sm", result.ok ? "bg-leaf-400/10 text-leaf-600" : "bg-red-50 text-red-700")}>
-          {result.message}
+      <Button type="submit" size="lg" className="w-full">Send message</Button>
+      {sent && (
+        <div className={cn("rounded-lg p-4 text-sm bg-leaf-400/10 text-leaf-600")}>
+          Thanks for reaching out! This is a demo site, so messages aren&apos;t actually sent or stored anywhere.
         </div>
       )}
     </form>

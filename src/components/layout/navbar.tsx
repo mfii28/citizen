@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, ChevronDown, Heart, LayoutDashboard, Search, User } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { Menu, X, ChevronDown, Heart, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -49,10 +48,6 @@ function isGroup(item: NavItem | NavGroup): item is NavGroup {
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { data: session } = useSession();
-  const role = session?.user?.role;
-  const isStaff = role === "ADMIN" || role === "STAFF";
-  const isMember = !!session?.user && !isStaff;
 
   return (
     <header className="sticky top-0 z-50 border-b border-ocean-100 bg-white/90 backdrop-blur-md dark:border-ocean-900 dark:bg-ocean-950/90">
@@ -101,19 +96,6 @@ export function Navbar() {
           <Link href="/search" aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-full text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
             <Search className="h-4 w-4" />
           </Link>
-          {isStaff ? (
-            <Link href="/admin" className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
-              <LayoutDashboard className="h-4 w-4" /> Admin
-            </Link>
-          ) : isMember ? (
-            <Link href="/account" className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
-              <User className="h-4 w-4" /> My Account
-            </Link>
-          ) : (
-            <Link href="/login" className="text-sm font-medium text-ocean-500 hover:text-ocean-800 dark:text-ocean-400 dark:hover:text-ocean-100">
-              Sign in
-            </Link>
-          )}
           <ThemeToggle />
           <Link
             href="/donate"

@@ -6,7 +6,7 @@ export default function PrivacyPage() {
       <div className="container-page max-w-2xl prose-ocean">
         <h1 className="font-display text-3xl font-semibold text-ocean-950 dark:text-white">Privacy Policy</h1>
         <p className="mt-4 text-sm text-gold-600">
-          Draft template — have this reviewed by a lawyer against Ghana's Data Protection Act, 2012 (Act 843)
+          Draft template — have this reviewed by a lawyer against Ghana&apos;s Data Protection Act, 2012 (Act 843)
           before publishing.
         </p>
         <p className="mt-6 text-ocean-700 dark:text-ocean-300">

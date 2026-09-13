@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { reports } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge } from "@/components/ui";
 import { FileText, Download } from "lucide-react";
 
 export const metadata: Metadata = { title: "Reports" };
-export const dynamic = "force-dynamic";
 
 const TYPE_LABEL: Record<string, string> = {
   ANNUAL: "Annual Report",
@@ -13,8 +12,8 @@ const TYPE_LABEL: Record<string, string> = {
   IMPACT: "Impact Report",
 };
 
-export default async function ReportsPage() {
-  const reports = await prisma.report.findMany({ orderBy: { publishedAt: "desc" } });
+export default function ReportsPage() {
+  const sorted = [...reports].sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 
   return (
     <section className="section-y">
@@ -25,7 +24,7 @@ export default async function ReportsPage() {
           description="Published reports, audits, and impact summaries — the same transparency commitment as our live dashboard, in document form."
         />
         <div className="mt-8 space-y-3">
-          {reports.map((r) => (
+          {sorted.map((r) => (
             <Card key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-ocean-500" />
@@ -44,7 +43,7 @@ export default async function ReportsPage() {
               )}
             </Card>
           ))}
-          {reports.length === 0 && <p className="text-ocean-500">No reports published yet.</p>}
+          {sorted.length === 0 && <p className="text-ocean-500">No reports published yet.</p>}
         </div>
       </div>
     </section>

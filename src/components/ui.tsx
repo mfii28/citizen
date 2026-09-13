@@ -12,6 +12,7 @@ export function Button({
   variant = "primary",
   size = "md",
   className,
+  disabled,
   children,
 }: {
   href?: string;
@@ -20,6 +21,7 @@ export function Button({
   variant?: "primary" | "secondary" | "ghost" | "outline";
   size?: "sm" | "md" | "lg";
   className?: string;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   const styles = cn(
@@ -34,12 +36,13 @@ export function Button({
     className
   );
   if (href) return <Link href={href} className={styles}>{children}</Link>;
-  return <button type={type} onClick={onClick} className={styles}>{children}</button>;
+  return <button type={type} onClick={onClick} disabled={disabled} className={styles}>{children}</button>;
 }
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
+export function Card({ id, className, children }: { id?: string; className?: string; children: ReactNode }) {
   return (
     <div
+      id={id}
       className={cn(
         "rounded-2xl border border-ocean-100 bg-white shadow-sm shadow-ocean-950/[0.03] dark:border-ocean-800 dark:bg-ocean-900",
         className

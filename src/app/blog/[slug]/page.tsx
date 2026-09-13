@@ -1,19 +1,17 @@
-import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getBlogPostBySlug } from "@/lib/mock-data";
 import { Badge } from "@/components/ui";
 import { ShareRow } from "@/components/share-row";
 import { formatDate } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = await prisma.blogPost.findUnique({ where: { slug: params.slug } });
+  const post = getBlogPostBySlug(params.slug);
   return post ? { title: post.title, description: post.excerpt } : {};
 }
 
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = await prisma.blogPost.findUnique({ where: { slug: params.slug } });
+export default function BlogPostPage({ params }: { params: { slug: string } }) {
+  const post = getBlogPostBySlug(params.slug);
   if (!post) notFound();
 
   return (

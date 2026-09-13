@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { events } from "@/lib/mock-data";
 import { SectionHeading, Card, Button } from "@/components/ui";
 import { ShareRow } from "@/components/share-row";
 import { formatDate } from "@/lib/utils";
 import { MapPin } from "lucide-react";
 
 export const metadata: Metadata = { title: "Events" };
-export const dynamic = "force-dynamic";
 
-export default async function EventsPage() {
+export default function EventsPage() {
   const now = new Date();
-  const [upcoming, past] = await Promise.all([
-    prisma.event.findMany({ where: { startDate: { gte: now } }, orderBy: { startDate: "asc" } }),
-    prisma.event.findMany({ where: { startDate: { lt: now } }, orderBy: { startDate: "desc" } }),
-  ]);
+  const upcoming = events.filter((e) => e.startDate >= now).sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  const past = events.filter((e) => e.startDate < now).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
 
   return (
     <section className="section-y">

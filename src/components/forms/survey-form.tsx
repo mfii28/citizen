@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { submitSurveyReport } from "@/lib/actions";
+import { useState } from "react";
 import { SURVEY_CATEGORIES, labelize } from "@/types";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -11,17 +10,13 @@ const inputClass =
 
 export function SurveyForm() {
   const [anonymous, setAnonymous] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
 
   return (
     <form
-      action={(formData) => {
-        formData.set("anonymous", anonymous ? "true" : "");
-        startTransition(async () => {
-          const res = await submitSurveyReport(formData);
-          setResult({ ok: res.ok, message: res.message ?? "" });
-        });
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSent(true);
       }}
       className="space-y-5"
     >
@@ -59,7 +54,7 @@ export function SurveyForm() {
         <p className="mb-2 text-sm font-medium text-ocean-800 dark:text-ocean-200">Photo / video (optional)</p>
         <input type="file" accept="image/*,video/*" className={cn(inputClass, "cursor-not-allowed opacity-60")} disabled />
         <p className="mt-1 text-xs text-ocean-500 dark:text-ocean-400">
-          Media uploads activate once Cloudinary is connected — see the README.
+          Media uploads aren&apos;t available on this demo site.
         </p>
       </div>
 
@@ -83,11 +78,11 @@ export function SurveyForm() {
         </div>
       </div>
 
-      <Button type="submit" size="lg" className="w-full">{pending ? "Submitting…" : "Submit report"}</Button>
+      <Button type="submit" size="lg" className="w-full">Submit report</Button>
 
-      {result && (
-        <div className={cn("rounded-lg p-4 text-sm", result.ok ? "bg-leaf-400/10 text-leaf-600" : "bg-red-50 text-red-700")}>
-          {result.message}
+      {sent && (
+        <div className={cn("rounded-lg p-4 text-sm bg-leaf-400/10 text-leaf-600")}>
+          Thanks for reporting this! This is a demo site, so reports aren&apos;t actually stored anywhere.
         </div>
       )}
     </form>

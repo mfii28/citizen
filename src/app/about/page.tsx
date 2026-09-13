@@ -31,7 +31,7 @@ export default function AboutPage() {
               <h2 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">History</h2>
               <p>
                 The Citizen Project began as a civic education programme for basic school learners, built to
-                complement the National Commission for Civic Education's mandate under UN SDG 4. What started as a
+                complement the National Commission for Civic Education&apos;s mandate under UN SDG 4. What started as a
                 five-event learning calendar has grown into a broader constituency-wide movement — one that now
                 spans environmental stewardship, youth livelihoods, and community-led reporting alongside our
                 original education work.

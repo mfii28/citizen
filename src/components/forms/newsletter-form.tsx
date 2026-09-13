@@ -1,21 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { subscribeNewsletter } from "@/lib/actions";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function NewsletterForm({ dark = true }: { dark?: boolean }) {
-  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
 
   return (
     <form
       className="flex gap-2"
-      action={(formData) => {
-        startTransition(async () => {
-          const res = await subscribeNewsletter(formData);
-          setStatus({ ok: res.ok, message: res.message ?? "" });
-        });
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSent(true);
       }}
     >
       <input
@@ -30,15 +26,9 @@ export function NewsletterForm({ dark = true }: { dark?: boolean }) {
             : "border-ocean-200 bg-white text-ocean-900 placeholder:text-ocean-400"
         )}
       />
-      <button
-        disabled={pending}
-        className="shrink-0 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-ocean-950 hover:bg-gold-400 disabled:opacity-60"
-      >
-        {pending ? "..." : "Join"}
+      <button className="shrink-0 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-ocean-950 hover:bg-gold-400">
+        {sent ? "Joined!" : "Join"}
       </button>
-      {status && (
-        <span className="sr-only" role="status">{status.message}</span>
-      )}
     </form>
   );
 }

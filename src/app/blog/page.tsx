@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { blogPosts } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Blog" };
-export const dynamic = "force-dynamic";
 
-export default async function BlogPage() {
-  const posts = await prisma.blogPost.findMany({ where: { published: true }, orderBy: { publishedAt: "desc" } });
+export default function BlogPage() {
+  const posts = blogPosts.filter((p) => p.published).sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
   return (
     <section className="section-y">
       <div className="container-page">

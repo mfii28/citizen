@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { initiatives, events, blogPosts, partners } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Search" };
-export const dynamic = "force-dynamic";
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
+export default function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const q = (searchParams.q ?? "").trim();
-  const mode = "insensitive" as const;
+  const needle = q.toLowerCase();
+  const matches = (...fields: (string | null | undefined)[]) =>
+    fields.some((f) => f && f.toLowerCase().includes(needle));
 
-  const [initiatives, events, posts, partners] = q
-    ? await Promise.all([
-        prisma.initiative.findMany({ where: { OR: [{ title: { contains: q, mode } }, { summary: { contains: q, mode } }] }, take: 8 }),
-        prisma.event.findMany({ where: { OR: [{ title: { contains: q, mode } }, { summary: { contains: q, mode } }] }, take: 8 }),
-        prisma.blogPost.findMany({ where: { published: true, OR: [{ title: { contains: q, mode } }, { excerpt: { contains: q, mode } }] }, take: 8 }),
-        prisma.partner.findMany({ where: { status: "APPROVED", OR: [{ name: { contains: q, mode } }, { organisation: { contains: q, mode } }] }, take: 8 }),
-      ])
-    : [[], [], [], []];
+  const matchedInitiatives = q ? initiatives.filter((i) => matches(i.title, i.summary)).slice(0, 8) : [];
+  const matchedEvents = q ? events.filter((e) => matches(e.title, e.summary)).slice(0, 8) : [];
+  const matchedPosts = q ? blogPosts.filter((p) => p.published && matches(p.title, p.excerpt)).slice(0, 8) : [];
+  const matchedPartners = q
+    ? partners.filter((p) => p.status === "APPROVED" && matches(p.name, p.organisation)).slice(0, 8)
+    : [];
 
-  const totalResults = initiatives.length + events.length + posts.length + partners.length;
+  const totalResults = matchedInitiatives.length + matchedEvents.length + matchedPosts.length + matchedPartners.length;
 
   return (
     <section className="section-y">
@@ -42,11 +41,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         )}
 
         <div className="mt-6 space-y-8">
-          {initiatives.length > 0 && (
+          {matchedInitiatives.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Initiatives</h2>
               <div className="mt-2 space-y-2">
-                {initiatives.map((i) => (
+                {matchedInitiatives.map((i) => (
                   <Link key={i.id} href={`/initiatives/${i.slug}`}>
                     <Card className="p-4 hover:shadow-md"><p className="font-medium text-ocean-900 dark:text-white">{i.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{i.summary}</p></Card>
                   </Link>
@@ -54,11 +53,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               </div>
             </div>
           )}
-          {events.length > 0 && (
+          {matchedEvents.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Events</h2>
               <div className="mt-2 space-y-2">
-                {events.map((e) => (
+                {matchedEvents.map((e) => (
                   <Link key={e.id} href={`/events#${e.slug}`}>
                     <Card className="p-4 hover:shadow-md"><p className="font-medium text-ocean-900 dark:text-white">{e.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{e.summary}</p></Card>
                   </Link>
@@ -66,11 +65,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               </div>
             </div>
           )}
-          {posts.length > 0 && (
+          {matchedPosts.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Blog</h2>
               <div className="mt-2 space-y-2">
-                {posts.map((p) => (
+                {matchedPosts.map((p) => (
                   <Link key={p.id} href={`/blog/${p.slug}`}>
                     <Card className="p-4 hover:shadow-md"><p className="font-medium text-ocean-900 dark:text-white">{p.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{p.excerpt}</p></Card>
                   </Link>
@@ -78,11 +77,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               </div>
             </div>
           )}
-          {partners.length > 0 && (
+          {matchedPartners.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Partners</h2>
               <div className="mt-2 space-y-2">
-                {partners.map((p) => (
+                {matchedPartners.map((p) => (
                   <Card key={p.id} className="p-4"><p className="font-medium text-ocean-900 dark:text-white">{p.organisation ?? p.name}</p><Badge>{p.category}</Badge></Card>
                 ))}
               </div>

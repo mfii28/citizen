@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { initiatives } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge, ProgressBar } from "@/components/ui";
 import { formatGHS, percent } from "@/lib/utils";
 import { labelize } from "@/types";
 
 export const metadata: Metadata = { title: "Initiatives" };
-export const dynamic = "force-dynamic";
 
-export default async function InitiativesPage() {
-  const initiatives = await prisma.initiative.findMany({ orderBy: { createdAt: "desc" } });
+export default function InitiativesPage() {
+  const sorted = [...initiatives].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return (
     <section className="section-y">
@@ -21,7 +20,7 @@ export default async function InitiativesPage() {
         />
 
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {initiatives.map((i) => (
+          {sorted.map((i) => (
             <Link key={i.id} href={`/initiatives/${i.slug}`}>
               <Card className="group h-full overflow-hidden transition hover:-translate-y-1 hover:shadow-lg">
                 <div className="flex h-32 items-center justify-center bg-gradient-to-br from-ocean-600 to-ocean-900 font-mono text-xs text-ocean-200">
@@ -38,17 +37,17 @@ export default async function InitiativesPage() {
                   <p className="mt-2 line-clamp-2 text-sm text-ocean-600 dark:text-ocean-300">{i.summary}</p>
                   <div className="mt-4">
                     <div className="flex justify-between text-xs font-mono text-ocean-500 dark:text-ocean-400">
-                      <span>{formatGHS(Number(i.amountRaised))} raised</span>
-                      <span>of {formatGHS(Number(i.budget))}</span>
+                      <span>{formatGHS(i.amountRaised)} raised</span>
+                      <span>of {formatGHS(i.budget)}</span>
                     </div>
-                    <div className="mt-1.5"><ProgressBar value={percent(Number(i.amountRaised), Number(i.budget))} /></div>
+                    <div className="mt-1.5"><ProgressBar value={percent(i.amountRaised, i.budget)} /></div>
                   </div>
                 </div>
               </Card>
             </Link>
           ))}
-          {initiatives.length === 0 && (
-            <p className="col-span-full text-ocean-500">No initiatives yet — run `npm run db:seed` to add sample data.</p>
+          {sorted.length === 0 && (
+            <p className="col-span-full text-ocean-500">No initiatives yet.</p>
           )}
         </div>
       </div>

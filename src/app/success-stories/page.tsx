@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
+import { successStories, initiatives } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Success Stories" };
-export const dynamic = "force-dynamic";
 
-export default async function SuccessStoriesPage() {
-  const stories = await prisma.successStory.findMany({ orderBy: { createdAt: "desc" }, include: { initiative: true } });
+export default function SuccessStoriesPage() {
+  const stories = successStories.map((s) => ({
+    ...s,
+    initiativeCategory: initiatives.find((i) => i.id === s.initiativeId)?.category,
+  }));
 
   return (
     <section className="section-y">
@@ -20,7 +22,7 @@ export default async function SuccessStoriesPage() {
           {stories.map((s) => (
             <Card key={s.id} className="overflow-hidden">
               <div className="flex h-36 items-center justify-center bg-gradient-to-br from-leaf-500 to-ocean-900 font-mono text-xs text-white">
-                {s.initiative?.category ?? "Success Story"}
+                {s.initiativeCategory ?? "Success Story"}
               </div>
               <div className="p-5">
                 {s.impactMetric && <Badge tone="leaf">{s.impactMetric}</Badge>}

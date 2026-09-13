@@ -1,8 +1,6 @@
-import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getInitiativeBySlug, getEventsForInitiative } from "@/lib/mock-data";
 import { Badge, ProgressBar, Button, Card } from "@/components/ui";
 import { ShareRow } from "@/components/share-row";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -10,32 +8,19 @@ import { formatGHS, formatDate, percent } from "@/lib/utils";
 import { labelize } from "@/types";
 import { MapPin, Users, Target, CalendarRange } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
-async function getInitiative(slug: string) {
-  return prisma.initiative.findUnique({
-    where: { slug },
-    include: { events: { orderBy: { startDate: "asc" } }, gallery: true },
-  });
-}
-
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const initiative = await getInitiative(params.slug);
+  const initiative = getInitiativeBySlug(params.slug);
   if (!initiative) return {};
   return { title: initiative.title, description: initiative.summary };
 }
 
-export default async function InitiativeDetailPage({ params }: { params: { slug: string } }) {
-  const initiative = await getInitiative(params.slug);
+export default function InitiativeDetailPage({ params }: { params: { slug: string } }) {
+  const initiative = getInitiativeBySlug(params.slug);
   if (!initiative) notFound();
 
-  const session = await getServerSession(authOptions);
-  const favorite = session?.user?.id
-    ? await prisma.favorite.findUnique({ where: { userId_initiativeId: { userId: session.user.id, initiativeId: initiative.id } } })
-    : null;
-
-  const raised = Number(initiative.amountRaised);
-  const budget = Number(initiative.budget);
+  const initiativeEvents = getEventsForInitiative(initiative.id);
+  const raised = initiative.amountRaised;
+  const budget = initiative.budget;
 
   return (
     <article>
@@ -47,7 +32,7 @@ export default async function InitiativeDetailPage({ params }: { params: { slug:
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <h1 className="mt-4 max-w-2xl text-balance font-display text-3xl font-semibold sm:text-4xl">{initiative.title}</h1>
-            <FavoriteButton initiativeId={initiative.id} initiallyFavorited={!!favorite} />
+            <FavoriteButton initiativeId={initiative.id} initiallyFavorited={false} />
           </div>
           <p className="mt-3 max-w-2xl text-ocean-200">{initiative.summary}</p>
         </div>
@@ -72,11 +57,11 @@ export default async function InitiativeDetailPage({ params }: { params: { slug:
               </ul>
             </div>
 
-            {initiative.events.length > 0 && (
+            {initiativeEvents.length > 0 && (
               <div>
                 <h2 className="font-display text-xl font-semibold text-ocean-950 dark:text-white">Timeline</h2>
                 <div className="mt-3 space-y-3">
-                  {initiative.events.map((e) => (
+                  {initiativeEvents.map((e) => (
                     <Card key={e.id} className="flex items-center gap-4 p-4">
                       <CalendarRange className="h-5 w-5 shrink-0 text-ocean-500" />
                       <div>
