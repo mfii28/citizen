@@ -1,0 +1,10 @@
+{
+  "name": "The Citizen Project",
+  "short_name": "Citizen Project",
+  "description": "Civic responsibility and community development in South Tongu Constituency, Ghana.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#081D26",
+  "theme_color": "#1E8AA8",
+  "icons": []
+}

@@ -1,0 +1,164 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Menu, X, ChevronDown, Heart, LayoutDashboard, Search, User } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./theme-toggle";
+
+type NavItem = { label: string; href: string };
+type NavGroup = { label: string; items: NavItem[] };
+
+const NAV: (NavItem | NavGroup)[] = [
+  { label: "Home", href: "/" },
+  {
+    label: "About",
+    items: [
+      { label: "Our Story", href: "/about" },
+      { label: "Vision", href: "/vision" },
+      { label: "Mission", href: "/mission" },
+      { label: "Success Stories", href: "/success-stories" },
+      { label: "Media Gallery", href: "/gallery" },
+      { label: "Reports", href: "/reports" },
+    ],
+  },
+  { label: "Initiatives", href: "/initiatives" },
+  { label: "Events", href: "/events" },
+  {
+    label: "Get Involved",
+    items: [
+      { label: "Volunteer", href: "/volunteer" },
+      { label: "Become an Ambassador", href: "/ambassadors" },
+      { label: "Partner With Us", href: "/partners" },
+      { label: "Report a Social Issue", href: "/survey" },
+      { label: "Community Map", href: "/community-map" },
+    ],
+  },
+  { label: "Blog", href: "/blog" },
+  { label: "Impact", href: "/impact" },
+  { label: "Transparency", href: "/transparency" },
+  { label: "Contact", href: "/contact" },
+];
+
+function isGroup(item: NavItem | NavGroup): item is NavGroup {
+  return "items" in item;
+}
+
+export function Navbar() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+  const isStaff = role === "ADMIN" || role === "STAFF";
+  const isMember = !!session?.user && !isStaff;
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-ocean-100 bg-white/90 backdrop-blur-md dark:border-ocean-900 dark:bg-ocean-950/90">
+      <div className="container-page flex h-16 items-center justify-between gap-4">
+        <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-ocean-900 dark:text-ocean-50">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ocean-700 text-sm text-white">TC</span>
+          The Citizen Project
+        </Link>
+
+        <nav className="hidden items-center gap-1 lg:flex">
+          {NAV.map((item) =>
+            isGroup(item) ? (
+              <div key={item.label} className="group relative">
+                <button className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
+                  {item.label}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                <div className="invisible absolute left-0 top-full z-10 w-64 translate-y-1 rounded-xl border border-ocean-100 bg-white p-2 opacity-0 shadow-xl shadow-ocean-950/5 transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 dark:border-ocean-800 dark:bg-ocean-900">
+                  {item.items.map((sub) => (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      className="block rounded-lg px-3 py-2 text-sm text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-800"
+                    >
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900",
+                  pathname === item.href && "bg-ocean-50 text-ocean-900 dark:bg-ocean-900 dark:text-white"
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
+        </nav>
+
+        <div className="hidden items-center gap-2 lg:flex">
+          <Link href="/search" aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-full text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
+            <Search className="h-4 w-4" />
+          </Link>
+          {isStaff ? (
+            <Link href="/admin" className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
+              <LayoutDashboard className="h-4 w-4" /> Admin
+            </Link>
+          ) : isMember ? (
+            <Link href="/account" className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
+              <User className="h-4 w-4" /> My Account
+            </Link>
+          ) : (
+            <Link href="/login" className="text-sm font-medium text-ocean-500 hover:text-ocean-800 dark:text-ocean-400 dark:hover:text-ocean-100">
+              Sign in
+            </Link>
+          )}
+          <ThemeToggle />
+          <Link
+            href="/donate"
+            className="flex items-center gap-1.5 rounded-full bg-gold-500 px-4 py-2 text-sm font-semibold text-ocean-950 shadow-sm transition hover:bg-gold-400"
+          >
+            <Heart className="h-4 w-4" /> Donate
+          </Link>
+        </div>
+
+        <button
+          className="rounded-md p-2 text-ocean-800 dark:text-ocean-100 lg:hidden"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+        >
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+      </div>
+
+      {open && (
+        <div className="border-t border-ocean-100 bg-white px-5 py-4 dark:border-ocean-900 dark:bg-ocean-950 lg:hidden">
+          <div className="flex flex-col gap-1">
+            {NAV.flatMap((item) => (isGroup(item) ? item.items : [item])).map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <div className="mt-2 flex items-center justify-between border-t border-ocean-100 pt-3 dark:border-ocean-900">
+              <ThemeToggle />
+              <Link
+                href="/donate"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-1.5 rounded-full bg-gold-500 px-4 py-2 text-sm font-semibold text-ocean-950"
+              >
+                <Heart className="h-4 w-4" /> Donate
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+}

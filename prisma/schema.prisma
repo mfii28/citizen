@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  AMBASSADOR
+  VOLUNTEER
+  MEMBER
+}
+
+enum InitiativeStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+}
+
+enum DonationMethod {
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  PAYPAL
+}
+
+enum DonationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum DonationFrequency {
+  ONE_TIME
+  MONTHLY
+}
+
+enum PartnerCategory {
+  INDIVIDUAL_AMBASSADOR
+  CORPORATE_BRAND
+  INSTITUTION
+  NGO
+  GOVERNMENT_AGENCY
+  SCHOOL
+  COMMUNITY_GROUP
+}
+
+enum PartnerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SurveyCategory {
+  EDUCATION
+  HEALTH
+  ENVIRONMENT
+  ROADS
+  WATER
+  SANITATION
+  EMPLOYMENT
+  DOMESTIC_VIOLENCE
+  YOUTH_DEVELOPMENT
+  POLITICS
+  CIVIC_EDUCATION
+  AGRICULTURE
+  SECURITY
+  CORRUPTION
+  INFRASTRUCTURE
+  OTHER
+}
+
+enum PriorityLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SurveyStatus {
+  SUBMITTED
+  IN_REVIEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum ExpenditureCategory {
+  PROGRAMS
+  ADMINISTRATION
+  FUNDRAISING
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  image        String?
+  role         Role     @default(MEMBER)
+  phone        String?
+  bio          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  blogPosts      BlogPost[]
+  volunteerHours VolunteerHour[]
+  ambassador     Ambassador?
+  favorites      Favorite[]
+  recurringDonations RecurringDonation[]
+  donations      Donation[]
+}
+
+// NextAuth-compatible tables — ready for Phase 2 (OAuth + credentials login)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Initiative {
+  id                 String            @id @default(cuid())
+  slug               String            @unique
+  title              String
+  summary            String
+  description        String
+  coverImage         String?
+  category           String
+  objectives         String[]
+  sdgTags            String[]
+  status             InitiativeStatus  @default(ACTIVE)
+  budget             Decimal           @default(0) @db.Decimal(12, 2)
+  amountRaised       Decimal           @default(0) @db.Decimal(12, 2)
+  location           String?
+  beneficiaries      String?
+  volunteersInvolved Int               @default(0)
+  startDate          DateTime?
+  endDate            DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  events       Event[]
+  donations    Donation[]
+  expenditures Expenditure[]
+  gallery      GalleryImage[]
+  favorites    Favorite[]
+  recurringDonations RecurringDonation[]
+  successStories SuccessStory[]
+}
+
+model GalleryImage {
+  id           String     @id @default(cuid())
+  url          String
+  caption      String?
+  initiativeId String
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+}
+
+model Event {
+  id           String      @id @default(cuid())
+  slug         String      @unique
+  title        String
+  summary      String
+  description  String
+  coverImage   String?
+  location     String?
+  startDate    DateTime
+  endDate      DateTime?
+  capacity     Int?
+  initiativeId String?
+  initiative   Initiative? @relation(fields: [initiativeId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  registrations EventRegistration[]
+}
+
+model EventRegistration {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  phone      String?
+  ticketCode String   @unique
+  checkedIn  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  content     String
+  coverImage  String?
+  category    String
+  tags        String[]
+  authorId    String?
+  author      User?    @relation(fields: [authorId], references: [id])
+  published   Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Donation {
+  id           String            @id @default(cuid())
+  donorName    String?
+  donorEmail   String
+  amount       Decimal           @db.Decimal(12, 2)
+  currency     String            @default("GHS")
+  method       DonationMethod
+  frequency    DonationFrequency @default(ONE_TIME)
+  status       DonationStatus    @default(PENDING)
+  reference    String            @unique
+  anonymous    Boolean           @default(false)
+  corporate    Boolean           @default(false)
+  initiativeId String?
+  initiative   Initiative?       @relation(fields: [initiativeId], references: [id])
+  userId       String?
+  user         User?             @relation(fields: [userId], references: [id])
+  createdAt    DateTime          @default(now())
+}
+
+model Expenditure {
+  id           String              @id @default(cuid())
+  category     ExpenditureCategory
+  description  String
+  amount       Decimal             @db.Decimal(12, 2)
+  date         DateTime
+  initiativeId String?
+  initiative   Initiative?         @relation(fields: [initiativeId], references: [id])
+  createdAt    DateTime            @default(now())
+}
+
+model Partner {
+  id                   String          @id @default(cuid())
+  name                 String
+  organisation         String?
+  position             String?
+  email                String
+  phone                String?
+  category             PartnerCategory
+  purpose              String
+  areasOfCollaboration String?
+  website              String?
+  socialMedia          String?
+  logoUrl              String?
+  proposalUrl          String?
+  referralSource       String?
+  status               PartnerStatus   @default(PENDING)
+  createdAt            DateTime        @default(now())
+}
+
+model Ambassador {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  bio            String?
+  volunteerHours Int      @default(0)
+  badges         String[]
+  certificateUrl String?
+  createdAt      DateTime @default(now())
+}
+
+model VolunteerHour {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  initiativeId String?
+  hours        Float
+  date         DateTime
+  description  String?
+  approved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model SurveyReport {
+  id                String         @id @default(cuid())
+  reporterName      String?
+  phone             String?
+  occupation        String?
+  email             String?
+  community         String
+  town              String
+  latitude          Float?
+  longitude         Float?
+  category          SurveyCategory
+  title             String
+  description       String
+  imageUrl          String?
+  videoUrl          String?
+  priority          PriorityLevel  @default(MEDIUM)
+  urgency           UrgencyLevel   @default(MEDIUM)
+  suggestedSolution String?
+  anonymous         Boolean        @default(false)
+  status            SurveyStatus   @default(SUBMITTED)
+  createdAt         DateTime       @default(now())
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  role      String?
+  content   String
+  imageUrl  String?
+  featured  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  subscribedAt DateTime @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+}
+
+model Favorite {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initiativeId String
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, initiativeId])
+}
+
+model RecurringDonation {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  initiativeId String?
+  initiative   Initiative? @relation(fields: [initiativeId], references: [id])
+  amount       Decimal     @db.Decimal(12, 2)
+  status       String      @default("ACTIVE")
+  createdAt    DateTime    @default(now())
+}
+
+model SuccessStory {
+  id              String      @id @default(cuid())
+  slug            String      @unique
+  title           String
+  beneficiaryName String?
+  story           String
+  imageUrl        String?
+  videoUrl        String?
+  impactMetric    String?
+  initiativeId    String?
+  initiative      Initiative? @relation(fields: [initiativeId], references: [id])
+  createdAt       DateTime    @default(now())
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  type        String
+  year        Int
+  fileUrl     String?
+  summary     String?
+  publishedAt DateTime @default(now())
+}
