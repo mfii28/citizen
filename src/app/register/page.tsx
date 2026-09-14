@@ -14,6 +14,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"user" | "volunteer" | "admin">("user");
   const [pending, setPending] = useState(false);
 
   return (
@@ -26,7 +27,7 @@ export default function RegisterPage() {
             onSubmit={(e) => {
               e.preventDefault();
               setPending(true);
-              setSession({ name, email });
+              setSession({ name, email, role });
               router.push("/dashboard");
             }}
             className="space-y-4"
@@ -56,8 +57,20 @@ export default function RegisterPage() {
               <label className="mb-1 block text-sm font-medium text-ocean-800 dark:text-ocean-200">Password</label>
               <input type="password" required placeholder="••••••••" className={inputClass} />
             </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-ocean-800 dark:text-ocean-200">I want to join as</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as "user" | "volunteer" | "admin")}
+                className={inputClass}
+              >
+                <option value="user">Citizen Supporter (Simple Dashboard)</option>
+                <option value="volunteer">Community Volunteer (Hours &amp; Badges)</option>
+                <option value="admin">District Coordinator (Extensive Admin)</option>
+              </select>
+            </div>
 
-            <Button type="submit" size="lg" className="w-full">
+            <Button type="submit" size="lg" className="w-full" disabled={pending}>
               <UserPlus className="h-4 w-4" /> {pending ? "Creating account…" : "Create account"}
             </Button>
 
