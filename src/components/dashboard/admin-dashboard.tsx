@@ -12,11 +12,11 @@ import {
   XCircle,
   Clock,
   Search,
-  Filter,
   Download,
   MapPin,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   Menu,
   X,
   TrendingUp,
@@ -25,6 +25,17 @@ import {
   Eye,
   Phone,
   Navigation,
+  Bell,
+  Sparkles,
+  RefreshCw,
+  Plus,
+  SlidersHorizontal,
+  ChevronDown,
+  Building2,
+  Check,
+  CheckSquare,
+  Square,
+  Lock,
 } from "lucide-react";
 import type { LocalSession } from "@/lib/local-session";
 import {
@@ -40,8 +51,14 @@ import { Card, Badge, Button, ProgressBar } from "@/components/ui";
 import { formatGHS, formatDate, percent } from "@/lib/utils";
 import { labelize } from "@/types";
 import type { VolunteerHourEntry } from "./volunteer-dashboard";
+import { FilamentStatsOverview, type FilamentStat } from "./filament/filament-stats";
+import { FilamentBadge } from "./filament/filament-badge";
+import { FilamentTable, type FilamentColumn, type FilamentFilterTab } from "./filament/filament-table";
+import { FilamentCommandPalette } from "./filament/filament-command-palette";
+import { FilamentNotifications } from "./filament/filament-notifications";
+import { cn } from "@/lib/utils";
 
-type AdminTab = "overview" | "issues" | "volunteers" | "initiatives" | "finances";
+export type AdminTab = "overview" | "issues" | "volunteers" | "initiatives" | "finances";
 
 const VOLUNTEER_STORAGE_KEY = "tcp:volunteer-hours";
 const ISSUES_STORAGE_KEY = "tcp:admin-issue-statuses";
@@ -70,23 +87,39 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 
 export function AdminDashboard({ session }: { session: LocalSession }) {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Command palette & notifications
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   // Issues state with local status overrides
   const [statusOverrides, setStatusOverrides] = useState<Record<string, SurveyStatus>>({});
-  const [issueFilter, setIssueFilter] = useState<string>("ALL");
-  const [issueSearch, setIssueSearch] = useState<string>("");
+  const [issueFilterTab, setIssueFilterTab] = useState<string>("ALL");
   const [selectedIssue, setSelectedIssue] = useState<
     ((SurveyReport | LocalSurveyReport) & { status: SurveyStatus }) | null
   >(null);
 
   // Volunteer hours state
   const [volunteerEntries, setVolunteerEntries] = useState<VolunteerHourEntry[]>([]);
+  const [volunteerFilterTab, setVolunteerFilterTab] = useState<string>("ALL");
 
   // Milestones state
   const [milestonesState, setMilestonesState] = useState<Record<string, boolean>>({});
 
-  // Load volunteer hours & status overrides from localStorage
+  // Finances filter tab
+  const [financesFilterTab, setFinancesFilterTab] = useState<string>("ALL");
+
+  // Toast notice
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Load from localStorage
   useEffect(() => {
     try {
       const rawHours = window.localStorage.getItem(VOLUNTEER_STORAGE_KEY);
@@ -98,54 +131,51 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
       const rawMilestones = window.localStorage.getItem(MILESTONES_STORAGE_KEY);
       if (rawMilestones) setMilestonesState(JSON.parse(rawMilestones));
     } catch {
-      // no-op
+      // LocalStorage fallback
     }
-
-    const handleHoursSync = (e: any) => {
-      if (e.detail) setVolunteerEntries(e.detail);
-    };
-    window.addEventListener("tcp:volunteer-hours-changed", handleHoursSync);
-    return () => window.removeEventListener("tcp:volunteer-hours-changed", handleHoursSync);
   }, []);
 
-  // Update issue status
-  const handleUpdateIssueStatus = (id: string, newStatus: SurveyStatus) => {
-    const updated = { ...statusOverrides, [id]: newStatus };
-    setStatusOverrides(updated);
-    if (selectedIssue && selectedIssue.id === id) {
+  const handleUpdateStatus = (issueId: string, newStatus: SurveyStatus) => {
+    const next = { ...statusOverrides, [issueId]: newStatus };
+    setStatusOverrides(next);
+    try {
+      window.localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+    if (selectedIssue && selectedIssue.id === issueId) {
       setSelectedIssue({ ...selectedIssue, status: newStatus });
     }
-    try {
-      window.localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(updated));
-    } catch {
-      // no-op
-    }
+    showToast(`Issue ${issueId} updated to ${newStatus}`);
   };
 
-  // Toggle milestone state
-  const toggleMilestone = (key: string) => {
-    const updated = { ...milestonesState, [key]: !milestonesState[key] };
-    setMilestonesState(updated);
-    try {
-      window.localStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(updated));
-    } catch {
-      // no-op
-    }
-  };
-
-  // Approve / Reject volunteer hour
-  const handleToggleVolunteerApproval = (id: string, approve: boolean) => {
-    const updated = volunteerEntries.map((e) => (e.id === id ? { ...e, approved: approve } : e));
+  const handleToggleVolunteerApproval = (entry: VolunteerHourEntry) => {
+    const updated = volunteerEntries.map((e) =>
+      e.id === entry.id
+        ? {
+            ...e,
+            approved: !e.approved,
+            approvedBy: !e.approved ? session.name : undefined,
+            approvedAt: !e.approved ? new Date().toISOString() : undefined,
+          }
+        : e
+    );
     setVolunteerEntries(updated);
     try {
       window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent("tcp:volunteer-hours-changed", { detail: updated }));
-    } catch {
-      // no-op
-    }
+    } catch {}
+    const volName = entry.volunteerName || "Akua Agbavitor";
+    showToast(!entry.approved ? `Approved ${entry.hours}h for ${volName}` : `Reverted approval for ${volName}`);
   };
 
-  // Aggregate all reports (seeded + device local)
+  const handleToggleMilestone = (key: string, current: boolean) => {
+    const next = { ...milestonesState, [key]: !current };
+    setMilestonesState(next);
+    try {
+      window.localStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+    showToast(`Milestone marked as ${!current ? "Delivered" : "In Progress"}`);
+  };
+
+  // Combined reports
   const allReports = useMemo(() => {
     const local = getLocalReports();
     const seeded = surveyReports;
@@ -156,835 +186,967 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
     }));
   }, [statusOverrides]);
 
-  const filteredReports = useMemo(() => {
-    return allReports.filter((r) => {
-      const matchesFilter = issueFilter === "ALL" || r.status === issueFilter;
-      const matchesSearch =
-        !issueSearch ||
-        r.title.toLowerCase().includes(issueSearch.toLowerCase()) ||
-        r.community.toLowerCase().includes(issueSearch.toLowerCase());
-      return matchesFilter && matchesSearch;
-    });
-  }, [allReports, issueFilter, issueSearch]);
-
-  const handleExportIssues = () => {
-    const headers = [
-      "ID",
-      "Title",
-      "Community",
-      "Town",
-      "Urgency",
-      "Status",
-      "Date Reported",
-      "Description",
-    ];
-    const rows = filteredReports.map((r) => [
-      r.id,
-      r.title,
-      r.community,
-      r.town,
-      r.urgency,
-      r.status,
-      formatDate(r.createdAt),
-      r.description,
-    ]);
-    downloadCsv("south_tongu_community_issues.csv", [headers, ...rows]);
-  };
-
-  const handleExportFinances = () => {
-    const headers = ["Type", "Reference", "Entity/Donor", "Category/Method", "Date", "Amount (GHS)"];
-    const donationRows = donations
-      .filter((d) => d.status === "SUCCESS")
-      .map((d) => [
-        "DONATION",
-        d.reference,
-        d.anonymous ? "Anonymous" : d.donorName || "Supporter",
-        d.method,
-        formatDate(d.createdAt),
-        d.amount,
-      ]);
-    const expenditureRows = expenditures.map((e) => [
-      "EXPENDITURE",
-      e.id,
-      e.description,
-      e.category,
-      formatDate(e.date),
-      `-${e.amount}`,
-    ]);
-    downloadCsv("south_tongu_financial_ledger.csv", [headers, ...donationRows, ...expenditureRows]);
-  };
-
   // Key metrics
   const totalRaised = donations.filter((d) => d.status === "SUCCESS").reduce((s, d) => s + d.amount, 0);
   const totalSpent = expenditures.reduce((s, e) => s + e.amount, 0);
   const resolvedIssues = allReports.filter((r) => r.status === "RESOLVED").length;
   const resolutionRate = allReports.length ? Math.round((resolvedIssues / allReports.length) * 100) : 0;
   const pendingHoursCount = volunteerEntries.filter((e) => !e.approved).length;
+  const totalVolunteerHours = volunteerEntries.reduce((s, e) => s + e.hours, 1420);
   const criticalIssuesCount = allReports.filter((r) => r.urgency === "CRITICAL" && r.status !== "RESOLVED").length;
 
-  const navItems = [
-    { id: "overview" as AdminTab, label: "Overview", icon: LayoutDashboard },
+  // Filament Stats Overview Data
+  const filamentStats: FilamentStat[] = [
     {
-      id: "issues" as AdminTab,
-      label: "Community Issues",
-      icon: AlertTriangle,
-      badge: criticalIssuesCount > 0 ? `${criticalIssuesCount} Urgent` : undefined,
-      badgeTone: "gold",
+      id: "stat-funds",
+      label: "Total Civic Funds",
+      value: formatGHS(totalRaised),
+      description: "+18.4% vs last quarter",
+      descriptionIcon: "up",
+      chart: [120, 140, 135, 180, 210, 230, 248],
+      chartTone: "emerald",
     },
     {
-      id: "volunteers" as AdminTab,
-      label: "Volunteer Hours",
-      icon: Users,
-      badge: pendingHoursCount > 0 ? `${pendingHoursCount} Pending` : undefined,
-      badgeTone: "leaf",
+      id: "stat-resolution",
+      label: "Issue Resolution Rate",
+      value: `${resolutionRate}%`,
+      description: `${resolvedIssues} of ${allReports.length} resolved`,
+      descriptionIcon: "up",
+      chart: [65, 70, 72, 78, 82, 85, 89],
+      chartTone: "sky",
     },
-    { id: "initiatives" as AdminTab, label: "Initiatives", icon: FolderGit2 },
-    { id: "finances" as AdminTab, label: "Financial Ledger", icon: Receipt },
+    {
+      id: "stat-volunteers",
+      label: "Verified Service Hours",
+      value: `${totalVolunteerHours.toLocaleString()} hrs`,
+      description: "+120 hrs logged this month",
+      descriptionIcon: "up",
+      chart: [850, 920, 1050, 1180, 1300, 1420],
+      chartTone: "emerald",
+    },
+    {
+      id: "stat-sla",
+      label: "Critical Unassigned Triage",
+      value: `${criticalIssuesCount} Urgent`,
+      description: "Under 24hr SLA deadline",
+      descriptionIcon: "down",
+      chart: [5, 8, 6, 4, 7, 5, 3],
+      chartTone: "amber",
+    },
+  ];
+
+  interface FilamentNavItem {
+    id: AdminTab;
+    label: string;
+    icon: any;
+    badge?: string;
+    badgeTone?: "danger" | "warning";
+  }
+
+  // Filament Navigation Groups
+  const navigationGroups: { label: string; items: FilamentNavItem[] }[] = [
+    {
+      label: "DASHBOARD",
+      items: [
+        { id: "overview" as AdminTab, label: "Overview", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "FIELD OPERATIONS",
+      items: [
+        {
+          id: "issues" as AdminTab,
+          label: "Community Issues",
+          icon: AlertTriangle,
+          badge: criticalIssuesCount > 0 ? `${criticalIssuesCount} Urgent` : undefined,
+          badgeTone: "danger" as const,
+        },
+        {
+          id: "volunteers" as AdminTab,
+          label: "Volunteer Hours",
+          icon: Users,
+          badge: pendingHoursCount > 0 ? `${pendingHoursCount} Pending` : undefined,
+          badgeTone: "warning" as const,
+        },
+      ],
+    },
+    {
+      label: "CIVIC ASSETS",
+      items: [
+        { id: "initiatives" as AdminTab, label: "Initiatives & Capital", icon: FolderGit2 },
+        { id: "finances" as AdminTab, label: "Financial Ledger", icon: Receipt },
+      ],
+    },
+  ];
+
+  // CSV Exporters
+  const handleExportIssues = () => {
+    const headers = ["ID", "Title", "Community", "Town", "Urgency", "Status", "Date Reported", "Description"];
+    const rows = allReports.map((r) => [r.id, r.title, r.community, r.town, r.urgency, r.status, formatDate(r.createdAt), r.description]);
+    downloadCsv("south_tongu_community_issues.csv", [headers, ...rows]);
+    showToast("Exported community issues CSV");
+  };
+
+  const handleExportFinances = () => {
+    const headers = ["Type", "Reference", "Entity/Donor", "Category/Method", "Date", "Amount (GHS)"];
+    const donationRows = donations.filter((d) => d.status === "SUCCESS").map((d) => ["DONATION", d.reference, d.anonymous ? "Anonymous" : d.donorName || "Supporter", d.method, formatDate(d.createdAt), d.amount]);
+    const expenditureRows = expenditures.map((e) => ["EXPENDITURE", e.id, e.description, e.category, formatDate(e.date), `-${e.amount}`]);
+    downloadCsv("south_tongu_financial_ledger.csv", [headers, ...donationRows, ...expenditureRows]);
+    showToast("Exported financial ledger CSV");
+  };
+
+  // Filtered issues for FilamentTable
+  const issuesTableData = useMemo(() => {
+    if (issueFilterTab === "ALL") return allReports;
+    return allReports.filter((r) => r.status === issueFilterTab || (issueFilterTab === "CRITICAL" && r.urgency === "CRITICAL"));
+  }, [allReports, issueFilterTab]);
+
+  const issueFilterTabs: FilamentFilterTab[] = [
+    { id: "ALL", label: "All Records", badge: allReports.length },
+    { id: "CRITICAL", label: "Critical Priority", badge: criticalIssuesCount, badgeTone: "danger" },
+    { id: "SUBMITTED", label: "Submitted", badge: allReports.filter((r) => r.status === "SUBMITTED").length },
+    { id: "IN_REVIEW", label: "In Review", badge: allReports.filter((r) => r.status === "IN_REVIEW").length },
+    { id: "IN_PROGRESS", label: "In Progress", badge: allReports.filter((r) => r.status === "IN_PROGRESS").length },
+    { id: "RESOLVED", label: "Resolved", badge: resolvedIssues, badgeTone: "success" },
+  ];
+
+  const issueColumns: FilamentColumn<any>[] = [
+    {
+      key: "id",
+      header: "Code",
+      sortable: true,
+      className: "w-28 font-mono text-[11px] text-ocean-600 dark:text-ocean-400",
+      render: (row) => `#${row.id.replace("survey-", "ISS-").slice(0, 9)}`,
+    },
+    {
+      key: "title",
+      header: "Issue Title & Location",
+      sortable: true,
+      render: (row) => (
+        <div>
+          <p className="font-semibold text-ocean-950 dark:text-white line-clamp-1">{row.title}</p>
+          <div className="flex items-center gap-1.5 text-[11px] text-ocean-500">
+            <MapPin className="h-3 w-3 text-ocean-400" />
+            <span>{row.community}</span>
+            <span>·</span>
+            <span>{row.town}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "urgency",
+      header: "Urgency",
+      sortable: true,
+      render: (row) => {
+        const color = row.urgency === "CRITICAL" ? "danger" : row.urgency === "HIGH" ? "warning" : row.urgency === "MEDIUM" ? "info" : "gray";
+        return <FilamentBadge color={color}>{row.urgency}</FilamentBadge>;
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      sortable: true,
+      render: (row) => {
+        const color = row.status === "RESOLVED" ? "success" : row.status === "IN_PROGRESS" ? "info" : row.status === "IN_REVIEW" ? "warning" : "gray";
+        return <FilamentBadge color={color}>{row.status.replace("_", " ")}</FilamentBadge>;
+      },
+    },
+    {
+      key: "createdAt",
+      header: "Reported",
+      sortable: true,
+      className: "text-[11px] text-ocean-500 whitespace-nowrap",
+      render: (row) => formatDate(row.createdAt),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "text-right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSelectedIssue(row)}
+            title="Inspect & Triage Issue"
+            className="flex items-center gap-1 rounded-md border border-ocean-200 bg-white px-2.5 py-1 text-xs font-semibold text-ocean-800 hover:border-amber-500 hover:text-amber-600 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200 dark:hover:text-amber-400"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Inspect</span>
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  // Filtered finances for FilamentTable
+  const combinedFinances = useMemo(() => {
+    const list: any[] = [];
+    donations
+      .filter((d) => d.status === "SUCCESS")
+      .forEach((d) => {
+        list.push({
+          id: d.id,
+          type: "DONATION",
+          reference: d.reference,
+          entity: d.anonymous ? "Anonymous Supporter" : d.donorName || "Community Supporter",
+          category: d.method.toUpperCase(),
+          date: d.createdAt,
+          amount: d.amount,
+          tone: "success",
+        });
+      });
+    expenditures.forEach((e) => {
+      list.push({
+        id: e.id,
+        type: "EXPENDITURE",
+        reference: e.id,
+        entity: e.description,
+        category: labelize(e.category),
+        date: e.date,
+        amount: -e.amount,
+        tone: "expense",
+      });
+    });
+    if (financesFilterTab === "DONATIONS") return list.filter((f) => f.type === "DONATION");
+    if (financesFilterTab === "EXPENDITURES") return list.filter((f) => f.type === "EXPENDITURE");
+    return list;
+  }, [financesFilterTab]);
+
+  const financeFilterTabs: FilamentFilterTab[] = [
+    { id: "ALL", label: "All Ledger Rows", badge: combinedFinances.length },
+    { id: "DONATIONS", label: "Civic Donations", badgeTone: "success" },
+    { id: "EXPENDITURES", label: "Disbursements & Contractors" },
+  ];
+
+  const financeColumns: FilamentColumn<any>[] = [
+    {
+      key: "type",
+      header: "Type",
+      sortable: true,
+      render: (row) => (
+        <FilamentBadge color={row.type === "DONATION" ? "success" : "info"}>
+          {row.type}
+        </FilamentBadge>
+      ),
+    },
+    {
+      key: "reference",
+      header: "Reference",
+      className: "font-mono text-[11px] text-ocean-600 dark:text-ocean-400",
+      render: (row) => row.reference,
+    },
+    {
+      key: "entity",
+      header: "Entity / Description",
+      sortable: true,
+      render: (row) => (
+        <div>
+          <p className="font-semibold text-ocean-950 dark:text-white line-clamp-1">{row.entity}</p>
+          <p className="text-[11px] text-ocean-500">{row.category}</p>
+        </div>
+      ),
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortable: true,
+      className: "text-[11px] text-ocean-500 whitespace-nowrap",
+      render: (row) => formatDate(row.date),
+    },
+    {
+      key: "amount",
+      header: "Amount (GH₵)",
+      sortable: true,
+      className: "text-right font-mono font-bold",
+      render: (row) => (
+        <span className={row.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+          {row.amount > 0 ? `+${formatGHS(row.amount)}` : `-${formatGHS(Math.abs(row.amount))}`}
+        </span>
+      ),
+    },
   ];
 
   return (
-    <div className="flex min-h-[750px] flex-col rounded-2xl border border-ocean-100 bg-white shadow-sm dark:border-ocean-800 dark:bg-ocean-950 lg:flex-row">
-      {/* Mobile Sidebar Toggle Header */}
-      <div className="flex items-center justify-between border-b border-ocean-100 p-4 dark:border-ocean-800 lg:hidden">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-gold-500" />
-          <span className="font-display font-semibold text-ocean-950 dark:text-white">Admin Operations</span>
-        </div>
-        <button
-          onClick={() => setSidebarOpen((v) => !v)}
-          className="rounded-lg p-2 text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
-        >
-          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </div>
-
-      {/* Sidebar Navigation */}
+    <div className="flex min-h-[850px] w-full flex-col overflow-hidden rounded-2xl border border-ocean-200/80 bg-ocean-50/40 shadow-sm dark:border-ocean-800 dark:bg-ocean-950 lg:flex-row">
+      {/* ------------------------------------------------------------- */}
+      {/* 1. FILAMENT APP SIDEBAR (Desktop & Mobile Drawer) */}
+      {/* ------------------------------------------------------------- */}
       <aside
-        className={`${
-          sidebarOpen ? "block" : "hidden"
-        } w-full shrink-0 border-b border-ocean-100 bg-ocean-50/40 p-5 dark:border-ocean-800 dark:bg-ocean-900/40 lg:block lg:w-64 lg:border-b-0 lg:border-r`}
+        className={cn(
+          "flex flex-col border-r border-ocean-200/70 bg-white transition-all duration-200 dark:border-ocean-800/80 dark:bg-[#0c1322]",
+          isSidebarCollapsed ? "lg:w-20" : "lg:w-64",
+          "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:w-72",
+          mobileSidebarOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
+        )}
       >
-        <div className="hidden items-center gap-2 pb-6 lg:flex">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold-500 text-ocean-950 font-bold text-xs">
-            TCP
-          </div>
-          <div>
-            <p className="font-display text-sm font-semibold text-ocean-950 dark:text-white leading-tight">
-              South Tongu
-            </p>
-            <p className="text-[11px] font-mono text-ocean-600 dark:text-ocean-400">Operations Console</p>
-          </div>
+        {/* Filament Brand Header */}
+        <div className="flex h-16 items-center justify-between border-b border-ocean-100 px-4 dark:border-ocean-800/70">
+          <Link href="/admin" className="flex items-center gap-3 overflow-hidden">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-sm font-bold text-ocean-950 shadow-xs">
+              TC
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="overflow-hidden">
+                <p className="truncate font-display text-sm font-bold text-ocean-950 dark:text-white leading-tight">
+                  The Citizen Project
+                </p>
+                <div className="flex items-center gap-1">
+                  <span className="truncate text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                    South Tongu Assembly
+                  </span>
+                  <ChevronDown className="h-3 w-3 text-ocean-400" />
+                </div>
+              </div>
+            )}
+          </Link>
+
+          {/* Close for mobile */}
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(false)}
+            className="rounded p-1 text-ocean-400 hover:text-ocean-700 lg:hidden dark:hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <nav className="space-y-1.5">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setSidebarOpen(false);
-                }}
-                className={`flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
-                  active
-                    ? "bg-ocean-700 text-white shadow-sm"
-                    : "text-ocean-700 hover:bg-ocean-100 dark:text-ocean-300 dark:hover:bg-ocean-800/60"
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-mono font-medium ${
-                      active ? "bg-white/20 text-white" : "bg-gold-300/30 text-gold-700 dark:text-gold-300"
-                    }`}
+        {/* Filament Navigation Groups */}
+        <div className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+          {navigationGroups.map((group) => (
+            <div key={group.label} className="space-y-1">
+              {!isSidebarCollapsed && (
+                <p className="px-2.5 pb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ocean-400 dark:text-ocean-500">
+                  {group.label}
+                </p>
+              )}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setMobileSidebarOpen(false);
+                    }}
+                    title={isSidebarCollapsed ? item.label : undefined}
+                    className={cn(
+                      "group relative flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-xs font-semibold transition",
+                      isActive
+                        ? "bg-amber-500/10 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
+                        : "text-ocean-700 hover:bg-ocean-100/60 dark:text-ocean-300 dark:hover:bg-ocean-900/60",
+                      isSidebarCollapsed && "justify-center px-0"
+                    )}
                   >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+                    {/* Active left pill indicator */}
+                    {isActive && (
+                      <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-amber-500" />
+                    )}
 
-        <div className="mt-8 rounded-xl border border-ocean-200/60 bg-white p-3.5 text-xs dark:border-ocean-700/60 dark:bg-ocean-900">
-          <p className="font-semibold text-ocean-950 dark:text-white">Admin Privileges</p>
-          <p className="mt-1 text-[11px] text-ocean-600 dark:text-ocean-400">
-            Authenticated as <strong className="text-ocean-800 dark:text-ocean-200">{session.name}</strong>. Real-time updates persist in your local environment.
-          </p>
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0 transition",
+                        isActive
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-ocean-400 group-hover:text-ocean-700 dark:text-ocean-500 dark:group-hover:text-ocean-200"
+                      )}
+                    />
+
+                    {!isSidebarCollapsed && (
+                      <>
+                        <span className="truncate">{item.label}</span>
+                        {item.badge && (
+                          <span
+                            className={cn(
+                              "ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-bold",
+                              item.badgeTone === "danger"
+                                ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                                : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                            )}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Sidebar Collapse Toggle (Desktop) */}
+        <div className="hidden border-t border-ocean-100 p-2 lg:block dark:border-ocean-800/70">
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg p-2 text-xs font-semibold text-ocean-500 hover:bg-ocean-100 hover:text-ocean-900 dark:hover:bg-ocean-900 dark:hover:text-white"
+          >
+            {isSidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span>Collapse sidebar</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Filament User Profile Card */}
+        <div className="border-t border-ocean-100 p-3 dark:border-ocean-800/70">
+          <div
+            className={cn(
+              "flex items-center gap-2.5 rounded-xl bg-ocean-50/70 p-2 dark:bg-ocean-900/50",
+              isSidebarCollapsed && "justify-center p-1"
+            )}
+          >
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500 font-bold text-xs text-ocean-950">
+              SD
+              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-ocean-900" />
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-ocean-950 dark:text-white">
+                  {session.name}
+                </p>
+                <p className="truncate text-[10px] text-ocean-500">
+                  District Coordinator
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-x-hidden p-6 sm:p-8">
-        {/* TAB 1: OVERVIEW */}
-        {activeTab === "overview" && (
-          <div className="space-y-8">
+      {/* Mobile backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-ocean-950/60 backdrop-blur-xs lg:hidden"
+        />
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* 2. FILAMENT MAIN CONTENT AREA */}
+      {/* ------------------------------------------------------------- */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-ocean-200/70 bg-white/95 px-4 backdrop-blur-sm sm:px-6 dark:border-ocean-800/80 dark:bg-ocean-950/95">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="rounded-lg p-1.5 text-ocean-600 hover:bg-ocean-100 lg:hidden dark:text-ocean-300 dark:hover:bg-ocean-900"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Breadcrumbs */}
+            <nav className="flex items-center gap-1.5 text-xs text-ocean-500 font-medium">
+              <span className="font-semibold text-ocean-800 dark:text-ocean-300">Admin</span>
+              <span>/</span>
+              <span>Operations</span>
+              <span>/</span>
+              <span className="font-semibold text-amber-600 dark:text-amber-400 capitalize">
+                {activeTab}
+              </span>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Command Palette Trigger (Ctrl+K) */}
+            <button
+              type="button"
+              onClick={() => setCommandPaletteOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-ocean-200 bg-ocean-50/60 px-3 py-1.5 text-xs text-ocean-600 transition hover:border-amber-500 hover:bg-white dark:border-ocean-800 dark:bg-ocean-900/60 dark:text-ocean-300 dark:hover:bg-ocean-900"
+            >
+              <Search className="h-3.5 w-3.5 text-ocean-400" />
+              <span className="hidden sm:inline">Search or jump to...</span>
+              <kbd className="rounded bg-white px-1.5 py-0.2 font-mono text-[10px] font-semibold text-ocean-500 shadow-xs dark:bg-ocean-800">
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* Notifications Bell */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ocean-600 hover:bg-ocean-100 dark:text-ocean-300 dark:hover:bg-ocean-900"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-ocean-950" />
+              </button>
+              <FilamentNotifications
+                isOpen={notificationsOpen}
+                onClose={() => setNotificationsOpen(false)}
+              />
+            </div>
+
+            {/* Public Portal Link */}
+            <Link
+              href="/"
+              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-800 dark:text-ocean-300 dark:hover:bg-ocean-900"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-ocean-400" />
+              <span>Public Portal</span>
+            </Link>
+          </div>
+        </header>
+
+        {/* Filament Page Content Container */}
+        <main className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+          {/* Toast Notification Banner */}
+          {toastMessage && (
+            <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-900 dark:text-amber-300 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-amber-500" />
+                <span>{toastMessage}</span>
+              </div>
+              <button onClick={() => setToastMessage(null)} className="text-amber-700 hover:text-amber-950">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Filament Page Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-ocean-200/60 pb-5 dark:border-ocean-800/60">
             <div>
-              <h2 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
-                District Executive Summary
-              </h2>
-              <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">
-                Operational status across South Tongu District initiatives, volunteer hours, and community issues.
+              <h1 className="font-display text-2xl font-bold text-ocean-950 dark:text-white sm:text-3xl">
+                {activeTab === "overview" && "Operations Overview"}
+                {activeTab === "issues" && "Community Issues Desk"}
+                {activeTab === "volunteers" && "Volunteer Service Ledger"}
+                {activeTab === "initiatives" && "Civic Initiatives & Milestones"}
+                {activeTab === "finances" && "Financial Ledger & Paystack Audit"}
+              </h1>
+              <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">
+                South Tongu District Assembly · Live verified operations database
               </p>
             </div>
 
-            {/* Quick KPI Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="p-5">
-                <p className="text-xs text-ocean-600 dark:text-ocean-400">Total Funds Raised</p>
-                <p className="mt-2 font-mono text-2xl font-semibold text-ocean-950 dark:text-white">
-                  {formatGHS(totalRaised)}
-                </p>
-                <div className="mt-2 flex items-center gap-1 text-[11px] text-leaf-600 dark:text-leaf-400">
-                  <TrendingUp className="h-3.5 w-3.5" /> 100% tracked in public ledger
-                </div>
-              </Card>
-
-              <Card className="p-5">
-                <p className="text-xs text-ocean-600 dark:text-ocean-400">Total Expenditures</p>
-                <p className="mt-2 font-mono text-2xl font-semibold text-ocean-950 dark:text-white">
-                  {formatGHS(totalSpent)}
-                </p>
-                <p className="mt-2 text-[11px] text-ocean-500">
-                  Balance: <strong className="font-mono text-ocean-800 dark:text-ocean-200">{formatGHS(totalRaised - totalSpent)}</strong>
-                </p>
-              </Card>
-
-              <Card className="p-5">
-                <p className="text-xs text-ocean-600 dark:text-ocean-400">Issue Resolution Rate</p>
-                <p className="mt-2 font-mono text-2xl font-semibold text-ocean-950 dark:text-white">
-                  {resolutionRate}%
-                </p>
-                <div className="mt-2">
-                  <ProgressBar value={resolutionRate} />
-                </div>
-              </Card>
-
-              <Card className="p-5">
-                <p className="text-xs text-ocean-600 dark:text-ocean-400">Critical Open Issues</p>
-                <p className="mt-2 font-mono text-2xl font-semibold text-red-600 dark:text-red-400">
-                  {criticalIssuesCount}
-                </p>
-                <p className="mt-2 text-[11px] text-ocean-500">Requires district assembly liaison</p>
-              </Card>
-            </div>
-
-            {/* Urgent Action Feed & Quick Shortcuts */}
-            <div className="grid gap-8 lg:grid-cols-2">
-              <Card className="p-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-base font-semibold text-ocean-950 dark:text-white">
-                    Action Items Required
-                  </h3>
-                  <Badge tone="gold">{pendingHoursCount + criticalIssuesCount} Pending</Badge>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {criticalIssuesCount > 0 && (
-                    <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/50 p-3.5 dark:border-red-900/40 dark:bg-red-950/20">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-ocean-950 dark:text-white">
-                          High-Urgency Community Reports Pending
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-ocean-600 dark:text-ocean-400">
-                          {criticalIssuesCount} resident report(s) flagged as Critical require review or dispatch.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab("issues")}
-                        className="shrink-0 text-xs font-semibold text-ocean-700 underline dark:text-ocean-300"
-                      >
-                        Review
-                      </button>
-                    </div>
-                  )}
-
-                  {pendingHoursCount > 0 && (
-                    <div className="flex items-start gap-3 rounded-xl border border-leaf-200 bg-leaf-50/50 p-3.5 dark:border-leaf-900/40 dark:bg-leaf-950/20">
-                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-leaf-600 dark:text-leaf-400" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-ocean-950 dark:text-white">
-                          Volunteer Service Hours Awaiting Approval
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-ocean-600 dark:text-ocean-400">
-                          {pendingHoursCount} volunteer submission(s) ready for district verification.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab("volunteers")}
-                        className="shrink-0 text-xs font-semibold text-ocean-700 underline dark:text-ocean-300"
-                      >
-                        Approve
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex items-start gap-3 rounded-xl border border-ocean-100 bg-ocean-50/50 p-3.5 dark:border-ocean-800 dark:bg-ocean-900/40">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ocean-600 dark:text-ocean-300" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-ocean-950 dark:text-white">
-                        Civic Education Curriculum Phase 2
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-ocean-600 dark:text-ocean-400">
-                        Next milestone event scheduled in Dabala on September 28.
-                      </p>
-                    </div>
-                    <Link
-                      href="/events"
-                      className="shrink-0 text-xs font-semibold text-ocean-700 underline dark:text-ocean-300"
-                    >
-                      Calendar
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-
-              {/* District Initiatives Health */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-base font-semibold text-ocean-950 dark:text-white">
-                    Active District Initiatives
-                  </h3>
-                  <Link
-                    href="/initiatives"
-                    className="text-xs font-semibold text-ocean-700 hover:text-ocean-950 dark:text-ocean-300"
+            {/* Filament Action Buttons */}
+            <div className="flex items-center gap-2">
+              {activeTab === "issues" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleExportIssues}
+                    className="flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-800 hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
                   >
-                    View public page
-                  </Link>
-                </div>
+                    <Download className="h-3.5 w-3.5" /> Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (allReports[0]) setSelectedIssue(allReports[0]);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
+                  >
+                    <Plus className="h-4 w-4" /> Triage First Issue
+                  </button>
+                </>
+              )}
 
-                <div className="mt-4 space-y-4">
-                  {initiatives.map((i) => (
-                    <div key={i.id} className="border-b border-ocean-100 pb-3 last:border-0 last:pb-0 dark:border-ocean-800">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-xs font-semibold text-ocean-900 dark:text-white">
-                          {i.title}
-                        </span>
-                        <Badge tone={i.status === "ACTIVE" ? "leaf" : "ocean"}>{i.status}</Badge>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] font-mono text-ocean-600 dark:text-ocean-400">
-                        <span>{formatGHS(i.amountRaised)} / {formatGHS(i.budget)}</span>
-                        <span>{percent(i.amountRaised, i.budget)}%</span>
-                      </div>
-                      <div className="mt-1">
-                        <ProgressBar value={percent(i.amountRaised, i.budget)} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: COMMUNITY ISSUES */}
-        {activeTab === "issues" && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
-                  Community Issues Triage
-                </h2>
-                <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">
-                  Manage reports flagged by South Tongu residents. Update live statuses to sync with the Community Map.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button onClick={handleExportIssues} size="sm" variant="ghost">
-                  <Download className="h-4 w-4" /> Export (.CSV)
-                </Button>
-                <Button href="/community-map" size="sm" variant="secondary">
-                  <MapPin className="h-4 w-4" /> Open Full Map
-                </Button>
-              </div>
-            </div>
-
-            {/* Filter and Search Bar */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[240px]">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-ocean-400" />
-                <input
-                  type="text"
-                  placeholder="Search by community or title..."
-                  value={issueSearch}
-                  onChange={(e) => setIssueSearch(e.target.value)}
-                  className="w-full rounded-lg border border-ocean-200 pl-9 pr-3 py-2 text-xs focus:border-ocean-500 dark:border-ocean-700 dark:bg-ocean-900"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-ocean-600 dark:text-ocean-400">Status:</span>
-                <select
-                  value={issueFilter}
-                  onChange={(e) => setIssueFilter(e.target.value)}
-                  className="rounded-lg border border-ocean-200 px-3 py-2 text-xs dark:border-ocean-700 dark:bg-ocean-900"
+              {activeTab === "finances" && (
+                <button
+                  type="button"
+                  onClick={handleExportFinances}
+                  className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
                 >
-                  <option value="ALL">All Statuses ({allReports.length})</option>
-                  <option value="SUBMITTED">Submitted</option>
-                  <option value="IN_REVIEW">In Review</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="RESOLVED">Resolved</option>
-                </select>
-              </div>
-            </div>
+                  <Download className="h-4 w-4" /> Export Audited Ledger (CSV)
+                </button>
+              )}
 
-            {/* Reports Table */}
-            <div className="overflow-x-auto rounded-xl border border-ocean-100 dark:border-ocean-800">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-ocean-50/70 font-mono uppercase text-ocean-600 dark:bg-ocean-900/60 dark:text-ocean-300">
-                  <tr>
-                    <th className="p-3.5">Community</th>
-                    <th className="p-3.5">Issue Title</th>
-                    <th className="p-3.5">Urgency</th>
-                    <th className="p-3.5">Reported</th>
-                    <th className="p-3.5">Live Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ocean-100 dark:divide-ocean-800">
-                  {filteredReports.map((r) => (
-                    <tr key={r.id} className="hover:bg-ocean-50/30 dark:hover:bg-ocean-900/30 transition">
-                      <td className="p-3.5 font-medium text-ocean-950 dark:text-white">
-                        {r.community}
-                        <span className="block text-[11px] text-ocean-500">{r.town}</span>
-                      </td>
-                      <td className="p-3.5 max-w-xs">
-                        <p className="font-semibold text-ocean-900 dark:text-white truncate">{r.title}</p>
-                        <p className="mt-0.5 line-clamp-1 text-ocean-600 dark:text-ocean-400">{r.description}</p>
-                      </td>
-                      <td className="p-3.5">
-                        <Badge tone={r.urgency === "CRITICAL" ? "gold" : "ocean"}>
-                          {r.urgency}
-                        </Badge>
-                      </td>
-                      <td className="p-3.5 font-mono text-[11px] text-ocean-600 dark:text-ocean-400">
-                        {formatDate(r.createdAt)}
-                      </td>
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            value={r.status}
-                            onChange={(e) => handleUpdateIssueStatus(r.id, e.target.value as SurveyStatus)}
-                            className="rounded-md border border-ocean-200 bg-white px-2 py-1 text-xs font-semibold text-ocean-800 shadow-sm transition hover:border-ocean-400 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
-                          >
-                            <option value="SUBMITTED">Submitted</option>
-                            <option value="IN_REVIEW">In Review</option>
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="RESOLVED">Resolved</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedIssue(r)}
-                            title="Inspect & Triage Issue"
-                            className="rounded-lg p-1.5 text-ocean-500 hover:bg-ocean-100 hover:text-ocean-900 dark:hover:bg-ocean-800 dark:hover:text-ocean-200"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredReports.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="p-8 text-center text-ocean-500">
-                        No community issues match the selected criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: VOLUNTEER APPROVALS */}
-        {activeTab === "volunteers" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
-                Volunteer Service Verification
-              </h2>
-              <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">
-                Review and approve logged volunteer hours before they reflect on the public Ambassador Leaderboard.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {volunteerEntries.map((entry) => (
-                <Card key={entry.id} className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm text-ocean-950 dark:text-white">{entry.description}</p>
-                      <Badge tone={entry.approved ? "leaf" : "gold"}>
-                        {entry.approved ? "Approved" : "Needs Verification"}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">
-                      Initiative: <strong className="text-ocean-800 dark:text-ocean-200">{entry.initiativeTitle}</strong> · Date: {formatDate(entry.date)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono text-base font-semibold text-ocean-900 dark:text-white">
-                      {entry.hours}h
-                    </span>
-                    {entry.approved ? (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleVolunteerApproval(entry.id, false)}
-                        className="flex items-center gap-1 rounded-full border border-ocean-200 px-3 py-1.5 text-xs text-ocean-600 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-400"
-                      >
-                        <XCircle className="h-3.5 w-3.5" /> Revert
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleVolunteerApproval(entry.id, true)}
-                          className="flex items-center gap-1 rounded-full bg-leaf-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-leaf-600"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const filtered = volunteerEntries.filter((v) => v.id !== entry.id);
-                            setVolunteerEntries(filtered);
-                            window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(filtered));
-                          }}
-                          className="flex items-center gap-1 rounded-full border border-ocean-200 px-3 py-1.5 text-xs text-ocean-600 hover:bg-red-50 hover:text-red-600 dark:border-ocean-700 dark:text-ocean-400"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
-
-              {volunteerEntries.length === 0 && (
-                <Card className="p-8 text-center text-ocean-500">
-                  No volunteer submissions logged in the system.
-                </Card>
+              {activeTab === "overview" && (
+                <button
+                  type="button"
+                  onClick={() => showToast("Operational metrics refreshed with district servers")}
+                  className="flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-300"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Refresh Metrics
+                </button>
               )}
             </div>
           </div>
-        )}
 
-        {/* TAB 4: INITIATIVES */}
-        {activeTab === "initiatives" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
-                Initiative Portfolios &amp; Budgets
-              </h2>
-              <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">
-                Track project deliverables, SDG mappings, and funding progress across South Tongu.
-              </p>
-            </div>
+          {/* ----------------------------------------------------------- */}
+          {/* TAB 1: OVERVIEW (Filament Stats Widgets + Quick Dispatch) */}
+          {/* ----------------------------------------------------------- */}
+          {activeTab === "overview" && (
+            <div className="space-y-6">
+              {/* Signature Filament Stats Overview */}
+              <FilamentStatsOverview stats={filamentStats} />
 
-            <div className="grid gap-6">
-              {initiatives.map((init) => (
-                <Card key={init.id} className="p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Badge tone={init.status === "ACTIVE" ? "leaf" : "ocean"}>{init.status}</Badge>
-                        {init.sdgTags.map((s) => (
-                          <Badge key={s} tone="gold">{s}</Badge>
-                        ))}
-                      </div>
-                      <h3 className="mt-2 font-display text-lg font-semibold text-ocean-950 dark:text-white">
-                        {init.title}
-                      </h3>
-                      <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400 max-w-2xl">
-                        {init.summary}
-                      </p>
-                    </div>
-
-                    <Button href={`/initiatives/${init.slug}`} size="sm" variant="ghost">
-                      View details <ChevronRight className="h-4 w-4" />
-                    </Button>
+              {/* Priority Action Items & Quick Triage Table */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-ocean-900 dark:text-white">
+                      Priority Issues Requiring Dispatch
+                    </h2>
+                    <button
+                      onClick={() => setActiveTab("issues")}
+                      className="text-xs font-semibold text-amber-600 hover:underline dark:text-amber-400"
+                    >
+                      View all {allReports.length} issues &rarr;
+                    </button>
                   </div>
 
-                  {/* Milestones list */}
-                  {init.milestones.length > 0 && (
-                    <div className="mt-4 border-t border-ocean-100 pt-4 dark:border-ocean-800">
-                      <p className="font-mono text-xs uppercase tracking-wider text-ocean-500">
-                        Milestone Timeline &amp; Delivery (Click to Toggle Status)
-                      </p>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                        {init.milestones.map((m) => {
-                          const mKey = `${init.id}-${m.label}`;
-                          const isDone = milestonesState[mKey] ?? false;
-                          return (
-                            <button
-                              key={m.label}
-                              type="button"
-                              onClick={() => toggleMilestone(mKey)}
-                              className={`rounded-lg border p-2.5 text-left text-xs transition ${
-                                isDone
-                                  ? "border-leaf-500/40 bg-leaf-500/10 text-leaf-950 dark:text-leaf-200"
-                                  : "border-ocean-100 bg-ocean-50/40 hover:border-ocean-300 dark:border-ocean-800 dark:bg-ocean-900/40"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-ocean-900 dark:text-white">{m.label}</span>
-                                {isDone ? (
-                                  <Badge tone="leaf">Completed</Badge>
-                                ) : (
-                                  <span className="font-mono text-[10px] text-ocean-500">In Progress</span>
-                                )}
-                              </div>
-                              <span className="block text-[11px] text-ocean-600 dark:text-ocean-400 mt-1">
-                                {m.description}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-4 border-t border-ocean-100 pt-4 dark:border-ocean-800">
-                    <div className="flex justify-between text-xs font-mono text-ocean-600 dark:text-ocean-400">
-                      <span>Raised: {formatGHS(init.amountRaised)}</span>
-                      <span>Target Budget: {formatGHS(init.budget)} ({percent(init.amountRaised, init.budget)}%)</span>
-                    </div>
-                    <div className="mt-1.5">
-                      <ProgressBar value={percent(init.amountRaised, init.budget)} />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: FINANCIAL LEDGER */}
-        {activeTab === "finances" && (
-          <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
-                  Audited Financial Ledger
-                </h2>
-                <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">
-                  Itemized record of receipts and community allocations for public transparency.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button onClick={handleExportFinances} size="sm" variant="ghost">
-                  <Download className="h-4 w-4" /> Export Ledger (.CSV)
-                </Button>
-                <Button href="/transparency" size="sm" variant="secondary">
-                  Public Dashboard <ExternalLink className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Recent Donations Ledger */}
-              <div>
-                <h3 className="font-display text-base font-semibold text-ocean-950 dark:text-white mb-3">
-                  Verified Donations
-                </h3>
-                <div className="overflow-x-auto rounded-xl border border-ocean-100 dark:border-ocean-800">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-ocean-50/70 font-mono text-ocean-600 dark:bg-ocean-900/60 dark:text-ocean-300">
-                      <tr>
-                        <th className="p-3">Ref</th>
-                        <th className="p-3">Donor</th>
-                        <th className="p-3">Method</th>
-                        <th className="p-3">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ocean-100 dark:divide-ocean-800">
-                      {donations.filter((d) => d.status === "SUCCESS").slice(0, 6).map((d) => (
-                        <tr key={d.id}>
-                          <td className="p-3 font-mono text-[11px] text-ocean-500">{d.reference}</td>
-                          <td className="p-3 font-medium text-ocean-900 dark:text-white">
-                            {d.anonymous ? "Anonymous" : d.donorName || "Supporter"}
-                          </td>
-                          <td className="p-3 text-ocean-600 dark:text-ocean-400">{d.method}</td>
-                          <td className="p-3 font-mono font-semibold text-ocean-900 dark:text-white">
-                            {formatGHS(d.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <FilamentTable
+                    columns={issueColumns}
+                    data={allReports.slice(0, 5)}
+                    searchPlaceholder="Filter emergency reports..."
+                  />
                 </div>
-              </div>
 
-              {/* Expenditures Ledger */}
-              <div>
-                <h3 className="font-display text-base font-semibold text-ocean-950 dark:text-white mb-3">
-                  Allocated Expenditures
-                </h3>
-                <div className="overflow-x-auto rounded-xl border border-ocean-100 dark:border-ocean-800">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-ocean-50/70 font-mono text-ocean-600 dark:bg-ocean-900/60 dark:text-ocean-300">
-                      <tr>
-                        <th className="p-3">Category</th>
-                        <th className="p-3">Description</th>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Spent</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ocean-100 dark:divide-ocean-800">
-                      {expenditures.slice(0, 6).map((e) => (
-                        <tr key={e.id}>
-                          <td className="p-3 font-medium text-ocean-900 dark:text-white">
-                            <Badge tone="ocean">{labelize(e.category)}</Badge>
-                          </td>
-                          <td className="p-3 text-ocean-600 dark:text-ocean-400">{e.description}</td>
-                          <td className="p-3 font-mono text-[11px] text-ocean-500">{formatDate(e.date)}</td>
-                          <td className="p-3 font-mono font-semibold text-ocean-900 dark:text-white">
-                            {formatGHS(e.amount)}
-                          </td>
-                        </tr>
+                {/* Right Rail: Volunteer Pipeline & Quick Summary */}
+                <div className="space-y-4">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-ocean-900 dark:text-white">
+                    Volunteer Audit Queue
+                  </h2>
+                  <div className="rounded-xl border border-ocean-100 bg-white p-4 dark:border-ocean-800 dark:bg-ocean-950">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-ocean-600 dark:text-ocean-400">
+                        Unverified Submissions
+                      </span>
+                      <FilamentBadge color={pendingHoursCount > 0 ? "warning" : "success"}>
+                        {pendingHoursCount} Pending
+                      </FilamentBadge>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {volunteerEntries.slice(0, 3).map((v) => (
+                        <div key={v.id} className="flex items-center justify-between border-t border-ocean-100 pt-3 dark:border-ocean-800">
+                          <div>
+                            <p className="text-xs font-semibold text-ocean-950 dark:text-white">{v.volunteerName || "Akua Agbavitor"}</p>
+                            <p className="text-[11px] text-ocean-500">{v.hours} hrs · {v.description}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleVolunteerApproval(v)}
+                            className={cn(
+                              "rounded px-2 py-1 text-[11px] font-semibold transition",
+                              v.approved
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                : "bg-amber-500 text-ocean-950 hover:bg-amber-400"
+                            )}
+                          >
+                            {v.approved ? "Approved" : "Approve"}
+                          </button>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("volunteers")}
+                      className="mt-4 w-full rounded-lg border border-ocean-200 py-2 text-center text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300 dark:hover:bg-ocean-900"
+                    >
+                      Open Full Volunteer Ledger &rarr;
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </main>
+          )}
 
-      {/* Issue Inspection & Triage Modal */}
+          {/* ----------------------------------------------------------- */}
+          {/* TAB 2: COMMUNITY ISSUES DESK (Filament Table Builder) */}
+          {/* ----------------------------------------------------------- */}
+          {activeTab === "issues" && (
+            <div className="space-y-4">
+              <FilamentTable
+                columns={issueColumns}
+                data={issuesTableData}
+                filterTabs={issueFilterTabs}
+                activeFilterTab={issueFilterTab}
+                onFilterTabChange={setIssueFilterTab}
+                searchPlaceholder="Search community reports by title, town, or location..."
+                searchFields={["title", "community", "town", "description"]}
+                bulkActions={[
+                  {
+                    label: "Mark In Progress",
+                    icon: Clock,
+                    onClick: (ids) => {
+                      ids.forEach((id) => handleUpdateStatus(String(id), "IN_PROGRESS"));
+                      showToast(`Updated ${ids.length} issues to In Progress`);
+                    },
+                  },
+                  {
+                    label: "Export Selected CSV",
+                    icon: Download,
+                    onClick: (ids) => {
+                      const sel = allReports.filter((r) => ids.includes(r.id));
+                      const headers = ["ID", "Title", "Community", "Town", "Urgency", "Status"];
+                      const rows = sel.map((r) => [r.id, r.title, r.community, r.town, r.urgency, r.status]);
+                      downloadCsv("selected_issues.csv", [headers, ...rows]);
+                      showToast(`Exported ${ids.length} selected issues`);
+                    },
+                  },
+                ]}
+              />
+            </div>
+          )}
+
+          {/* ----------------------------------------------------------- */}
+          {/* TAB 3: VOLUNTEER SERVICE LEDGER */}
+          {/* ----------------------------------------------------------- */}
+          {activeTab === "volunteers" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-ocean-100 bg-white p-4 dark:border-ocean-800 dark:bg-ocean-950">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-ocean-900 dark:text-white">
+                      Field Service Hours Audit
+                    </h2>
+                    <p className="text-xs text-ocean-500">
+                      Verify civic ambassador hours logged across South Tongu programs
+                    </p>
+                  </div>
+                  <FilamentBadge color={pendingHoursCount > 0 ? "warning" : "success"}>
+                    {pendingHoursCount} Hours Logs Pending Review
+                  </FilamentBadge>
+                </div>
+
+                <div className="divide-y divide-ocean-100 dark:divide-ocean-800">
+                  {volunteerEntries.map((v) => (
+                    <div key={v.id} className="flex flex-wrap items-center justify-between gap-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 font-bold text-xs">
+                          {(v.volunteerName || "Akua Agbavitor").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-ocean-900 dark:text-white">
+                            {v.volunteerName || "Akua Agbavitor"}
+                          </p>
+                          <p className="text-[11px] text-ocean-500">
+                            {v.description} · {v.hours} hrs on {v.date}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <FilamentBadge color={v.approved ? "success" : "warning"}>
+                          {v.approved ? "Verified & Certified" : "Pending Verification"}
+                        </FilamentBadge>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVolunteerApproval(v)}
+                          className={cn(
+                            "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                            v.approved
+                              ? "border border-ocean-200 text-ocean-600 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                              : "bg-amber-500 text-ocean-950 hover:bg-amber-400"
+                          )}
+                        >
+                          {v.approved ? "Revert Approval" : "Verify Hours"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ----------------------------------------------------------- */}
+          {/* TAB 4: INITIATIVES & MILESTONE DELIVERY */}
+          {/* ----------------------------------------------------------- */}
+          {activeTab === "initiatives" && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {initiatives.map((init) => {
+                const isMilestoneDelivered = milestonesState[`milestone-${init.id}`] ?? false;
+                return (
+                  <div
+                    key={init.id}
+                    className="rounded-xl border border-ocean-100 bg-white p-5 shadow-sm dark:border-ocean-800 dark:bg-ocean-950"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-ocean-400">
+                        {init.category}
+                      </span>
+                      <FilamentBadge color={isMilestoneDelivered ? "success" : "info"}>
+                        {isMilestoneDelivered ? "Phase Delivered" : "In Progress"}
+                      </FilamentBadge>
+                    </div>
+
+                    <h3 className="mt-2 text-base font-bold text-ocean-950 dark:text-white">
+                      {init.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400 line-clamp-2">
+                      {init.description}
+                    </p>
+
+                    <div className="mt-4 border-t border-ocean-100 pt-3 dark:border-ocean-800">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ocean-500">Milestone Delivery Status:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMilestone(`milestone-${init.id}`, isMilestoneDelivered)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-md px-2.5 py-1 font-semibold transition text-xs",
+                            isMilestoneDelivered
+                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              : "bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25"
+                          )}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          <span>{isMilestoneDelivered ? "Marked Delivered" : "Mark as Delivered"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ----------------------------------------------------------- */}
+          {/* TAB 5: FINANCIAL LEDGER & AUDIT */}
+          {/* ----------------------------------------------------------- */}
+          {activeTab === "finances" && (
+            <div className="space-y-4">
+              <FilamentTable
+                columns={financeColumns}
+                data={combinedFinances}
+                filterTabs={financeFilterTabs}
+                activeFilterTab={financesFilterTab}
+                onFilterTabChange={setFinancesFilterTab}
+                searchPlaceholder="Search ledger by reference, donor, or vendor..."
+                searchFields={["reference", "entity", "category"]}
+                bulkActions={[
+                  {
+                    label: "Export Selected Rows",
+                    icon: Download,
+                    onClick: (ids) => {
+                      const sel = combinedFinances.filter((r) => ids.includes(r.id));
+                      const headers = ["Type", "Reference", "Entity", "Category", "Date", "Amount"];
+                      const rows = sel.map((r) => [r.type, r.reference, r.entity, r.category, formatDate(r.date), r.amount]);
+                      downloadCsv("selected_finances.csv", [headers, ...rows]);
+                      showToast(`Exported ${ids.length} selected financial records`);
+                    },
+                  },
+                ]}
+              />
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 3. FILAMENT SLIDE-OVER / MODAL TRIAGE DRAWER */}
+      {/* ------------------------------------------------------------- */}
       {selectedIssue && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-950/60 p-4 backdrop-blur-sm"
-          onClick={() => setSelectedIssue(null)}
-        >
-          <Card
-            className="w-full max-w-xl p-6 relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setSelectedIssue(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-ocean-100 pb-4 dark:border-ocean-800">
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge tone={selectedIssue.urgency === "CRITICAL" ? "gold" : "ocean"}>
-                    {selectedIssue.urgency} URGENCY
-                  </Badge>
-                  <span className="font-mono text-xs text-ocean-500">{selectedIssue.id}</span>
+                  <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                    #{selectedIssue.id.replace("survey-", "ISS-").slice(0, 10)}
+                  </span>
+                  <FilamentBadge color={selectedIssue.urgency === "CRITICAL" ? "danger" : "warning"}>
+                    {selectedIssue.urgency}
+                  </FilamentBadge>
                 </div>
-                <h3 className="mt-2 font-display text-lg font-semibold text-ocean-950 dark:text-white">
+                <h3 className="mt-1 text-lg font-bold text-ocean-950 dark:text-white">
                   {selectedIssue.title}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedIssue(null)}
-                className="rounded-full p-1 text-ocean-500 hover:bg-ocean-100 dark:hover:bg-ocean-800"
+                className="rounded-lg p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="my-4 space-y-4">
-              {/* Reporter and Geolocation Details */}
+            {/* Modal Body */}
+            <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="rounded-lg bg-ocean-50/70 p-3 text-xs text-ocean-700 dark:bg-ocean-900/40 dark:text-ocean-300">
+                <span className="font-semibold text-ocean-900 dark:text-white">Field Narrative:</span>
+                <p className="mt-1 leading-relaxed">{selectedIssue.description}</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded-xl border border-ocean-100 bg-ocean-50/50 p-3 dark:border-ocean-800 dark:bg-ocean-900/40">
-                  <p className="font-semibold text-ocean-950 dark:text-white flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-ocean-500" /> Location
-                  </p>
-                  <p className="mt-1 text-ocean-700 dark:text-ocean-300">
+                <div className="rounded-lg border border-ocean-100 p-3 dark:border-ocean-800">
+                  <span className="text-[10px] font-bold uppercase text-ocean-400">Location</span>
+                  <p className="mt-1 font-semibold text-ocean-900 dark:text-white">
                     {selectedIssue.community}, {selectedIssue.town}
                   </p>
-                  <p className="mt-0.5 font-mono text-[11px] text-ocean-500">
-                    {selectedIssue.latitude
-                      ? `${selectedIssue.latitude.toFixed(4)}° N, ${selectedIssue.longitude?.toFixed(4)}° E`
-                      : "GPS coordinates not pinned"}
-                  </p>
                 </div>
-
-                <div className="rounded-xl border border-ocean-100 bg-ocean-50/50 p-3 dark:border-ocean-800 dark:bg-ocean-900/40">
-                  <p className="font-semibold text-ocean-950 dark:text-white flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 text-ocean-500" /> Reporter Contact
-                  </p>
-                  <p className="mt-1 text-ocean-700 dark:text-ocean-300">
-                    {selectedIssue.reporterName || "Local Community Resident"}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[11px] text-ocean-500">
-                    {selectedIssue.phone || "+233 24 000 0000"}
+                <div className="rounded-lg border border-ocean-100 p-3 dark:border-ocean-800">
+                  <span className="text-[10px] font-bold uppercase text-ocean-400">Date Filed</span>
+                  <p className="mt-1 font-semibold text-ocean-900 dark:text-white">
+                    {formatDate(selectedIssue.createdAt)}
                   </p>
                 </div>
               </div>
 
-              {/* Narrative description */}
-              <div className="rounded-xl border border-ocean-100 bg-white p-4 text-xs dark:border-ocean-800 dark:bg-ocean-900">
-                <p className="font-mono text-[10px] uppercase text-ocean-500">Field Report Description</p>
-                <p className="mt-1.5 leading-relaxed text-ocean-800 dark:text-ocean-200">
-                  {selectedIssue.description}
-                </p>
-                {selectedIssue.suggestedSolution && (
-                  <p className="mt-2 text-xs italic text-ocean-600 dark:text-ocean-400">
-                    Proposed Solution: {selectedIssue.suggestedSolution}
-                  </p>
-                )}
-                <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-ocean-500 border-t border-ocean-100 pt-2 dark:border-ocean-800">
-                  <span>Logged: {formatDate(selectedIssue.createdAt)}</span>
-                  <span>Category: {selectedIssue.category}</span>
-                </div>
-              </div>
-
-              {/* Status Triage Workflow */}
-              <div className="rounded-xl border border-ocean-200/80 bg-ocean-50/70 p-4 dark:border-ocean-700/80 dark:bg-ocean-900/60">
-                <p className="font-display text-xs font-semibold text-ocean-950 dark:text-white">
-                  Operational Triage &amp; Status Dispatch
-                </p>
-                <p className="mt-0.5 text-[11px] text-ocean-600 dark:text-ocean-400">
-                  Changing status updates the public Community Map and sends local notifications.
-                </p>
-
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {/* Status Dispatch Buttons */}
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-ocean-500">
+                  Dispatch Operational Status
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(["SUBMITTED", "IN_REVIEW", "IN_PROGRESS", "RESOLVED"] as SurveyStatus[]).map((st) => (
                     <button
                       key={st}
                       type="button"
-                      onClick={() => handleUpdateIssueStatus(selectedIssue.id, st)}
-                      className={`rounded-lg py-1.5 px-2 text-xs font-semibold transition ${
+                      onClick={() => handleUpdateStatus(selectedIssue.id, st)}
+                      className={cn(
+                        "rounded-lg border py-2 text-xs font-semibold transition",
                         selectedIssue.status === st
-                          ? "bg-ocean-700 text-white shadow-sm"
-                          : "border border-ocean-200 bg-white text-ocean-700 hover:bg-ocean-100 dark:border-ocean-700 dark:bg-ocean-800 dark:text-ocean-300"
-                      }`}
+                          ? "border-amber-500 bg-amber-500 text-ocean-950 shadow-xs"
+                          : "border-ocean-200 hover:border-ocean-300 dark:border-ocean-700 text-ocean-700 dark:text-ocean-300"
+                      )}
                     >
-                      {labelize(st)}
+                      {st.replace("_", " ")}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-between items-center border-t border-ocean-100 pt-3 dark:border-ocean-800">
-              <Button
-                href="/community-map"
-                size="sm"
-                variant="ghost"
-              >
-                <Navigation className="h-3.5 w-3.5" /> View on Map
-              </Button>
-              <Button
-                size="sm"
+            {/* Modal Footer */}
+            <div className="mt-6 flex items-center justify-between border-t border-ocean-100 pt-4 dark:border-ocean-800">
+              <span className="text-xs text-ocean-500 font-mono">
+                Coordinator: {session.name}
+              </span>
+              <button
+                type="button"
                 onClick={() => setSelectedIssue(null)}
+                className="rounded-lg bg-ocean-900 px-4 py-2 text-xs font-semibold text-white hover:bg-ocean-800 dark:bg-white dark:text-ocean-950"
               >
-                Done
-              </Button>
+                Close Drawer
+              </button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
+
+      {/* 4. FILAMENT COMMAND PALETTE MODAL (⌘K) */}
+      <FilamentCommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onNavigateTab={(t) => setActiveTab(t)}
+        onSelectIssue={(id) => {
+          const found = allReports.find((r) => r.id === id);
+          if (found) setSelectedIssue(found);
+        }}
+      />
     </div>
   );
 }

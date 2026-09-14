@@ -7,21 +7,26 @@ import type { LocalSession } from "@/lib/local-session";
 import { Card, Badge, Button, ProgressBar } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { initiatives, events } from "@/lib/mock-data";
+import { FilamentStatsOverview, type FilamentStat } from "./filament/filament-stats";
+import { FilamentBadge } from "./filament/filament-badge";
 
 export type VolunteerHourEntry = {
   id: string;
+  volunteerName?: string;
   description: string;
   initiativeTitle: string;
   date: string;
   hours: number;
   approved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
 };
 
 const INITIAL_HOURS: VolunteerHourEntry[] = [
-  { id: "vh-1", description: "Civic Education facilitation at Sogakope Basic School", initiativeTitle: "Global Citizenship Programme", date: "2026-08-12", hours: 6, approved: true },
-  { id: "vh-2", description: "Estuary bank cleanup team coordination", initiativeTitle: "Clean Communities Initiative", date: "2026-07-20", hours: 4, approved: true },
-  { id: "vh-3", description: "Voter dialogue workshop ushering & attendee check-in", initiativeTitle: "Know Yourself, Know Your Path", date: "2026-08-28", hours: 4, approved: true },
-  { id: "vh-4", description: "Community survey data verification in Dabala", initiativeTitle: "Inside Community Survey", date: "2026-09-08", hours: 4, approved: false },
+  { id: "vh-1", volunteerName: "Akua Agbavitor", description: "Civic Education facilitation at Sogakope Basic School", initiativeTitle: "Global Citizenship Programme", date: "2026-08-12", hours: 6, approved: true },
+  { id: "vh-2", volunteerName: "Akua Agbavitor", description: "Estuary bank cleanup team coordination", initiativeTitle: "Clean Communities Initiative", date: "2026-07-20", hours: 4, approved: true },
+  { id: "vh-3", volunteerName: "Akua Agbavitor", description: "Voter dialogue workshop ushering & attendee check-in", initiativeTitle: "Know Yourself, Know Your Path", date: "2026-08-28", hours: 4, approved: true },
+  { id: "vh-4", volunteerName: "Akua Agbavitor", description: "Community survey data verification in Dabala", initiativeTitle: "Inside Community Survey", date: "2026-09-08", hours: 4, approved: false },
 ];
 
 const STORAGE_KEY = "tcp:volunteer-hours";
@@ -86,6 +91,7 @@ export function VolunteerDashboard({ session }: { session: LocalSession }) {
     e.preventDefault();
     const newEntry: VolunteerHourEntry = {
       id: `vh-${Date.now()}`,
+      volunteerName: session.name || "Akua Agbavitor",
       description,
       initiativeTitle,
       date,
@@ -130,8 +136,50 @@ export function VolunteerDashboard({ session }: { session: LocalSession }) {
 
   const upcomingEvents = events.slice(0, 3);
 
+  const volunteerStats: FilamentStat[] = [
+    {
+      id: "stat-approved-hours",
+      label: "Verified Service Hours",
+      value: `${approvedHours} hrs`,
+      description: "Official civic credit",
+      descriptionIcon: "up",
+      chart: [4, 8, 12, 14, 18],
+      chartTone: "emerald",
+    },
+    {
+      id: "stat-pending-hours",
+      label: "Pending Verification",
+      value: `${pendingHours} hrs`,
+      description: "Awaiting coordinator review",
+      descriptionIcon: "neutral",
+      chart: [0, 2, 4],
+      chartTone: "amber",
+    },
+    {
+      id: "stat-tier",
+      label: "Ambassador Rank",
+      value: currentTier,
+      description: `${Math.max(0, targetHours - approvedHours)}h to next tier`,
+      descriptionIcon: "up",
+      chart: [10, 30, 60],
+      chartTone: "sky",
+    },
+    {
+      id: "stat-tasks",
+      label: "Fieldwork RSVPs",
+      value: `${registeredEventIds.length} Tasks`,
+      description: "Active deployment",
+      descriptionIcon: "up",
+      chart: [1, 2, 3],
+      chartTone: "emerald",
+    },
+  ];
+
   return (
     <div className="space-y-8">
+      {/* Filament Stats Overview Widgets */}
+      <FilamentStatsOverview stats={volunteerStats} />
+
       {/* Ambassador Tier Banner */}
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">

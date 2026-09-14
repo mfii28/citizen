@@ -20,6 +20,8 @@ import { getInitiativeBySlug } from "@/lib/mock-data";
 import { getLocalReports } from "@/lib/local-reports";
 import { Card, Badge, Button, ProgressBar } from "@/components/ui";
 import { formatGHS, formatDate, percent } from "@/lib/utils";
+import { FilamentStatsOverview, type FilamentStat } from "./filament/filament-stats";
+import { FilamentBadge } from "./filament/filament-badge";
 
 export type DonationRecord = {
   id: string;
@@ -90,46 +92,40 @@ export function UserDashboard({
   const totalDonated = donationsList.reduce((sum, d) => sum + d.amount, 0);
   const favorites = favoriteSlugs.map((s) => getInitiativeBySlug(s)).filter(Boolean);
 
+  const citizenStats: FilamentStat[] = [
+    {
+      id: "stat-donations",
+      label: "Total Contributions",
+      value: formatGHS(totalDonated),
+      description: "Paystack verified",
+      descriptionIcon: "up",
+      chart: [50, 100, 150, 250, 450],
+      chartTone: "amber",
+    },
+    {
+      id: "stat-favorites",
+      label: "Saved Initiatives",
+      value: `${favorites.length} Projects`,
+      description: "Active civic watch",
+      descriptionIcon: "neutral",
+      chart: [1, 2, 2, 3],
+      chartTone: "sky",
+    },
+    {
+      id: "stat-reports",
+      label: "Community Reports",
+      value: `${reports.length} Tracked`,
+      description: "Submitted from device",
+      descriptionIcon: "up",
+      chart: [0, 1, 2, 3],
+      chartTone: "emerald",
+    },
+  ];
+
   return (
     <div className="space-y-8">
-      {/* Metric Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold-300/30 text-gold-600 dark:text-gold-400">
-            <Heart className="h-5 w-5" />
-          </div>
-          <p className="mt-3 font-mono text-2xl font-semibold text-ocean-950 dark:text-white">
-            {formatGHS(totalDonated)}
-          </p>
-          <p className="text-xs text-ocean-600 dark:text-ocean-400">
-            Total contributed to South Tongu
-          </p>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ocean-100 text-ocean-700 dark:bg-ocean-800 dark:text-ocean-300">
-            <Bookmark className="h-5 w-5" />
-          </div>
-          <p className="mt-3 font-mono text-2xl font-semibold text-ocean-950 dark:text-white">
-            {favorites.length}
-          </p>
-          <p className="text-xs text-ocean-600 dark:text-ocean-400">
-            Saved community initiatives
-          </p>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-leaf-400/15 text-leaf-600 dark:text-leaf-400">
-            <AlertCircle className="h-5 w-5" />
-          </div>
-          <p className="mt-3 font-mono text-2xl font-semibold text-ocean-950 dark:text-white">
-            {reports.length}
-          </p>
-          <p className="text-xs text-ocean-600 dark:text-ocean-400">
-            Issues reported from this device
-          </p>
-        </Card>
-      </div>
+      {/* Filament Stats Overview Widgets */}
+      <FilamentStatsOverview stats={citizenStats} className="sm:grid-cols-3 xl:grid-cols-3" />
 
       {/* Main Sections: Favorites & History */}
       <div className="grid gap-8 lg:grid-cols-2">
