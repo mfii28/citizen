@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HandHeart, Building2 } from "lucide-react";
 import { donations } from "@/lib/mock-data";
 import { DonationForm } from "@/components/forms/donation-form";
 import { Card, SectionHeading } from "@/components/ui";
@@ -26,8 +27,14 @@ export default function DonatePage({ searchParams }: { searchParams: { initiativ
           </Card>
 
           <div className="mt-8 grid gap-4 text-sm text-ocean-600 dark:text-ocean-300 sm:grid-cols-2">
-            <p>💛 <strong className="text-ocean-900 dark:text-white">Sponsor an initiative</strong> — link your gift to a specific project from the Initiatives page.</p>
-            <p>🏢 <strong className="text-ocean-900 dark:text-white">Corporate giving</strong> — tick &quot;corporate donation&quot; above, or contact us for a partnership plan.</p>
+            <p className="flex items-start gap-2">
+              <HandHeart className="mt-0.5 h-4 w-4 shrink-0 text-gold-500" />
+              <span><strong className="text-ocean-900 dark:text-white">Sponsor an initiative</strong> — link your gift to a specific project from the Initiatives page.</span>
+            </p>
+            <p className="flex items-start gap-2">
+              <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-ocean-600 dark:text-ocean-400" />
+              <span><strong className="text-ocean-900 dark:text-white">Corporate giving</strong> — tick &quot;corporate donation&quot; above, or contact us for a partnership plan.</span>
+            </p>
           </div>
         </div>
 

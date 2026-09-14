@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Heart, Clock, Bookmark, LogOut } from "lucide-react";
 import { getSession, clearSession, type LocalSession } from "@/lib/local-session";
 import { getInitiativeBySlug } from "@/lib/mock-data";
+import { getFavoriteSlugs, FAVORITES_CHANGED_EVENT } from "@/lib/local-favorites";
 import { SectionHeading, Card, Badge, Button } from "@/components/ui";
 import { formatGHS, formatDate } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ const SAMPLE_FAVORITE_SLUGS = ["youth-skills-livelihood-initiative"];
 export default function DashboardPage() {
   const router = useRouter();
   const [session, setSessionState] = useState<LocalSession | null | "checking">("checking");
+  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
 
   useEffect(() => {
     const existing = getSession();
@@ -31,6 +33,15 @@ export default function DashboardPage() {
       return;
     }
     setSessionState(existing);
+    const saved = getFavoriteSlugs();
+    setFavoriteSlugs(saved.length > 0 ? saved : SAMPLE_FAVORITE_SLUGS);
+
+    const handleSync = () => {
+      const updated = getFavoriteSlugs();
+      setFavoriteSlugs(updated.length > 0 ? updated : SAMPLE_FAVORITE_SLUGS);
+    };
+    window.addEventListener(FAVORITES_CHANGED_EVENT, handleSync);
+    return () => window.removeEventListener(FAVORITES_CHANGED_EVENT, handleSync);
   }, [router]);
 
   if (session === "checking" || session === null) {
@@ -45,7 +56,7 @@ export default function DashboardPage() {
 
   const totalGiven = SAMPLE_DONATIONS.reduce((sum, d) => sum + d.amount, 0);
   const totalHours = SAMPLE_HOURS.reduce((sum, h) => sum + h.hours, 0);
-  const favorites = SAMPLE_FAVORITE_SLUGS.map((slug) => getInitiativeBySlug(slug)).filter(Boolean);
+  const favorites = favoriteSlugs.map((slug) => getInitiativeBySlug(slug)).filter(Boolean);
 
   return (
     <section className="section-y">

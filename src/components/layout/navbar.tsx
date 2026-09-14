@@ -21,11 +21,19 @@ const NAV: (NavItem | NavGroup)[] = [
       { label: "Mission", href: "/mission" },
       { label: "Success Stories", href: "/success-stories" },
       { label: "Media Gallery", href: "/gallery" },
+      { label: "Blog", href: "/blog" },
       { label: "Reports", href: "/reports" },
     ],
   },
-  { label: "Initiatives", href: "/initiatives" },
-  { label: "Events", href: "/events" },
+  {
+    label: "Our Work",
+    items: [
+      { label: "Initiatives", href: "/initiatives" },
+      { label: "Events", href: "/events" },
+      { label: "Impact", href: "/impact" },
+      { label: "Transparency", href: "/transparency" },
+    ],
+  },
   {
     label: "Get Involved",
     items: [
@@ -36,9 +44,6 @@ const NAV: (NavItem | NavGroup)[] = [
       { label: "Community Map", href: "/community-map" },
     ],
   },
-  { label: "Blog", href: "/blog" },
-  { label: "Impact", href: "/impact" },
-  { label: "Transparency", href: "/transparency" },
   { label: "Contact", href: "/contact" },
 ];
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { CheckCircle2, Heart } from "lucide-react";
+import { cn, formatGHS, generateReference } from "@/lib/utils";
 import { Button } from "@/components/ui";
 
 const AMOUNTS = [50, 100, 250, 500];
@@ -20,13 +21,77 @@ export function DonationForm({ initiativeId }: { initiativeId?: string }) {
   const [anonymous, setAnonymous] = useState(false);
   const [corporate, setCorporate] = useState(false);
   const [sent, setSent] = useState(false);
+  const [reference, setReference] = useState("");
 
   const finalAmount = customAmount ? Number(customAmount) : amount;
+  const methodLabel = METHODS.find((m) => m.value === method)?.label ?? method;
+
+  if (sent) {
+    return (
+      <div className="space-y-6 py-4 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-leaf-400/15 text-leaf-600 dark:text-leaf-400">
+          <CheckCircle2 className="h-7 w-7" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
+            Thank you for your support
+          </h3>
+          <p className="mx-auto max-w-md text-sm text-ocean-700 dark:text-ocean-300">
+            This is a demo site, so no funds were debited. Your gift represents the kind of civic investment that powers South Tongu forward.
+          </p>
+        </div>
+
+        <div className="mx-auto max-w-sm rounded-xl border border-ocean-100 bg-ocean-50/50 p-4 text-left text-xs text-ocean-800 dark:border-ocean-800 dark:bg-ocean-900/50 dark:text-ocean-200">
+          <div className="flex justify-between py-1 border-b border-ocean-100 dark:border-ocean-800">
+            <span className="text-ocean-600 dark:text-ocean-400">Reference</span>
+            <span className="font-mono font-medium">{reference}</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-ocean-100 dark:border-ocean-800">
+            <span className="text-ocean-600 dark:text-ocean-400">Amount</span>
+            <span className="font-mono font-medium">{formatGHS(finalAmount)}</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-ocean-100 dark:border-ocean-800">
+            <span className="text-ocean-600 dark:text-ocean-400">Frequency</span>
+            <span className="font-medium">{frequency === "MONTHLY" ? "Monthly gift" : "One-time gift"}</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span className="text-ocean-600 dark:text-ocean-400">Method</span>
+            <span className="font-medium">{methodLabel}</span>
+          </div>
+        </div>
+
+        {method === "BANK_TRANSFER" && (
+          <div className="mx-auto max-w-sm rounded-lg border border-gold-300/40 bg-gold-300/10 p-3 text-left font-mono text-xs text-gold-700 dark:text-gold-300">
+            <p className="font-semibold uppercase tracking-wider text-[10px]">Wire Instructions</p>
+            <p className="mt-1">Bank: GCB Bank (Sogakope Branch)</p>
+            <p>Acc Name: The Citizen Project</p>
+            <p>Acc No: 1441000000000</p>
+            <p className="mt-1 text-[11px] text-ocean-600 dark:text-ocean-400">Narration: {reference}</p>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <Button
+            onClick={() => {
+              setSent(false);
+              setCustomAmount("");
+              setAmount(100);
+            }}
+            variant="ghost"
+            size="md"
+          >
+            Make another donation
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        setReference(generateReference("TCP"));
         setSent(true);
       }}
       className="space-y-6"
@@ -121,19 +186,8 @@ export function DonationForm({ initiativeId }: { initiativeId?: string }) {
       </div>
 
       <Button type="submit" size="lg" className="w-full">
-        {`Donate GHS ${finalAmount || 0}${frequency === "MONTHLY" ? " / month" : ""}`}
+        {`Donate ${formatGHS(finalAmount || 0)}${frequency === "MONTHLY" ? " / month" : ""}`}
       </Button>
-
-      {sent && (
-        <div className="rounded-lg bg-leaf-400/10 p-4 text-sm text-leaf-600">
-          Thank you! This is a demo site, so no payment was actually processed.
-          {method === "BANK_TRANSFER" && (
-            <p className="mt-2 font-mono text-xs">
-              Acc. Name: The Citizen Project · Acc. No: 0000000000 · Bank: [Add bank details] · Use your name as the transfer narration.
-            </p>
-          )}
-        </div>
-      )}
     </form>
   );
 }

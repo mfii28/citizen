@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { initiatives, surveyReports, ambassadorLeaderboard } from "@/lib/mock-data";
-import { SectionHeading, Card } from "@/components/ui";
+import { SectionHeading, Card, Badge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Impact Dashboard" };
 
@@ -56,7 +56,7 @@ export default function ImpactPage() {
             <h2 className="font-display text-lg font-semibold text-ocean-950 dark:text-white">SDGs supported</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {Array.from(sdgSet).map((s) => (
-                <span key={s} className="rounded-full bg-gold-300/30 px-3 py-1 text-xs font-medium text-gold-600">{s}</span>
+                <Badge key={s} tone="gold">{s}</Badge>
               ))}
             </div>
           </div>

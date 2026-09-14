@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MapPin, LoaderCircle } from "lucide-react";
+import { MapPin, LoaderCircle, CheckCircle2 } from "lucide-react";
 import { SURVEY_CATEGORIES, labelize } from "@/types";
 import { addLocalReport, generateLocalReportId } from "@/lib/local-reports";
 import type { PriorityLevel, UrgencyLevel } from "@/lib/mock-data";
@@ -37,6 +37,41 @@ export function SurveyForm() {
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+
+  if (sent) {
+    return (
+      <div className="space-y-6 py-6 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-leaf-400/15 text-leaf-600 dark:text-leaf-400">
+          <CheckCircle2 className="h-7 w-7" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-display text-2xl font-semibold text-ocean-950 dark:text-white">
+            Report Submitted Successfully
+          </h3>
+          <p className="mx-auto max-w-md text-sm text-ocean-700 dark:text-ocean-300">
+            Thank you for taking civic action. Your report is saved and now pinned on the interactive South Tongu Community Map on this device.
+          </p>
+        </div>
+        <div className="flex flex-col justify-center gap-3 pt-2 sm:flex-row">
+          <Button href="/community-map" size="md">
+            <MapPin className="h-4 w-4" /> View on Community Map
+          </Button>
+          <Button
+            onClick={() => {
+              setSent(false);
+              setCoords(null);
+              setGeoStatus("idle");
+              setAnonymous(false);
+            }}
+            variant="ghost"
+            size="md"
+          >
+            Report another issue
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -170,14 +205,6 @@ export function SurveyForm() {
       </div>
 
       <Button type="submit" size="lg" className="w-full">Submit report</Button>
-
-      {sent && (
-        <div className={cn("rounded-lg p-4 text-sm bg-leaf-400/10 text-leaf-600")}>
-          Thanks for reporting this! It&apos;s saved on this device and now pinned on the{" "}
-          <Link href="/community-map" className="font-semibold underline">Community Map</Link>. This is a demo
-          site with no shared database yet, so the report is visible on this device only.
-        </div>
-      )}
     </form>
   );
 }
