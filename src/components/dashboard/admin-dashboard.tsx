@@ -22,6 +22,9 @@ import {
   TrendingUp,
   ShieldCheck,
   Building,
+  Eye,
+  Phone,
+  Navigation,
 } from "lucide-react";
 import type { LocalSession } from "@/lib/local-session";
 import {
@@ -42,6 +45,28 @@ type AdminTab = "overview" | "issues" | "volunteers" | "initiatives" | "finances
 
 const VOLUNTEER_STORAGE_KEY = "tcp:volunteer-hours";
 const ISSUES_STORAGE_KEY = "tcp:admin-issue-statuses";
+const MILESTONES_STORAGE_KEY = "tcp:admin-initiative-milestones";
+
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csvContent = rows
+    .map((e) =>
+      e
+        .map((val) => {
+          const str = String(val ?? "").replace(/"/g, '""');
+          return `"${str}"`;
+        })
+        .join(",")
+    )
+    .join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 export function AdminDashboard({ session }: { session: LocalSession }) {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
@@ -51,9 +76,15 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   const [statusOverrides, setStatusOverrides] = useState<Record<string, SurveyStatus>>({});
   const [issueFilter, setIssueFilter] = useState<string>("ALL");
   const [issueSearch, setIssueSearch] = useState<string>("");
+  const [selectedIssue, setSelectedIssue] = useState<
+    ((SurveyReport | LocalSurveyReport) & { status: SurveyStatus }) | null
+  >(null);
 
   // Volunteer hours state
   const [volunteerEntries, setVolunteerEntries] = useState<VolunteerHourEntry[]>([]);
+
+  // Milestones state
+  const [milestonesState, setMilestonesState] = useState<Record<string, boolean>>({});
 
   // Load volunteer hours & status overrides from localStorage
   useEffect(() => {
@@ -63,6 +94,9 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
 
       const rawOverrides = window.localStorage.getItem(ISSUES_STORAGE_KEY);
       if (rawOverrides) setStatusOverrides(JSON.parse(rawOverrides));
+
+      const rawMilestones = window.localStorage.getItem(MILESTONES_STORAGE_KEY);
+      if (rawMilestones) setMilestonesState(JSON.parse(rawMilestones));
     } catch {
       // no-op
     }
@@ -78,8 +112,22 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   const handleUpdateIssueStatus = (id: string, newStatus: SurveyStatus) => {
     const updated = { ...statusOverrides, [id]: newStatus };
     setStatusOverrides(updated);
+    if (selectedIssue && selectedIssue.id === id) {
+      setSelectedIssue({ ...selectedIssue, status: newStatus });
+    }
     try {
       window.localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // no-op
+    }
+  };
+
+  // Toggle milestone state
+  const toggleMilestone = (key: string) => {
+    const updated = { ...milestonesState, [key]: !milestonesState[key] };
+    setMilestonesState(updated);
+    try {
+      window.localStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(updated));
     } catch {
       // no-op
     }
@@ -118,6 +166,53 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
       return matchesFilter && matchesSearch;
     });
   }, [allReports, issueFilter, issueSearch]);
+
+  const handleExportIssues = () => {
+    const headers = [
+      "ID",
+      "Title",
+      "Community",
+      "Town",
+      "Urgency",
+      "Status",
+      "Date Reported",
+      "Description",
+    ];
+    const rows = filteredReports.map((r) => [
+      r.id,
+      r.title,
+      r.community,
+      r.town,
+      r.urgency,
+      r.status,
+      formatDate(r.createdAt),
+      r.description,
+    ]);
+    downloadCsv("south_tongu_community_issues.csv", [headers, ...rows]);
+  };
+
+  const handleExportFinances = () => {
+    const headers = ["Type", "Reference", "Entity/Donor", "Category/Method", "Date", "Amount (GHS)"];
+    const donationRows = donations
+      .filter((d) => d.status === "SUCCESS")
+      .map((d) => [
+        "DONATION",
+        d.reference,
+        d.anonymous ? "Anonymous" : d.donorName || "Supporter",
+        d.method,
+        formatDate(d.createdAt),
+        d.amount,
+      ]);
+    const expenditureRows = expenditures.map((e) => [
+      "EXPENDITURE",
+      e.id,
+      e.description,
+      e.category,
+      formatDate(e.date),
+      `-${e.amount}`,
+    ]);
+    downloadCsv("south_tongu_financial_ledger.csv", [headers, ...donationRows, ...expenditureRows]);
+  };
 
   // Key metrics
   const totalRaised = donations.filter((d) => d.status === "SUCCESS").reduce((s, d) => s + d.amount, 0);
@@ -402,9 +497,14 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                 </p>
               </div>
 
-              <Button href="/community-map" size="sm" variant="secondary">
-                <MapPin className="h-4 w-4" /> Open Full Map
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleExportIssues} size="sm" variant="ghost">
+                  <Download className="h-4 w-4" /> Export (.CSV)
+                </Button>
+                <Button href="/community-map" size="sm" variant="secondary">
+                  <MapPin className="h-4 w-4" /> Open Full Map
+                </Button>
+              </div>
             </div>
 
             {/* Filter and Search Bar */}
@@ -468,16 +568,26 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                         {formatDate(r.createdAt)}
                       </td>
                       <td className="p-3.5">
-                        <select
-                          value={r.status}
-                          onChange={(e) => handleUpdateIssueStatus(r.id, e.target.value as SurveyStatus)}
-                          className="rounded-md border border-ocean-200 bg-white px-2.5 py-1 text-xs font-semibold text-ocean-800 shadow-sm transition hover:border-ocean-400 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
-                        >
-                          <option value="SUBMITTED">Submitted</option>
-                          <option value="IN_REVIEW">In Review</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="RESOLVED">Resolved</option>
-                        </select>
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={r.status}
+                            onChange={(e) => handleUpdateIssueStatus(r.id, e.target.value as SurveyStatus)}
+                            className="rounded-md border border-ocean-200 bg-white px-2 py-1 text-xs font-semibold text-ocean-800 shadow-sm transition hover:border-ocean-400 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
+                          >
+                            <option value="SUBMITTED">Submitted</option>
+                            <option value="IN_REVIEW">In Review</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="RESOLVED">Resolved</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedIssue(r)}
+                            title="Inspect & Triage Issue"
+                            className="rounded-lg p-1.5 text-ocean-500 hover:bg-ocean-100 hover:text-ocean-900 dark:hover:bg-ocean-800 dark:hover:text-ocean-200"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -607,17 +717,38 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                   {/* Milestones list */}
                   {init.milestones.length > 0 && (
                     <div className="mt-4 border-t border-ocean-100 pt-4 dark:border-ocean-800">
-                      <p className="font-mono text-xs uppercase tracking-wider text-ocean-500">Milestone Timeline</p>
+                      <p className="font-mono text-xs uppercase tracking-wider text-ocean-500">
+                        Milestone Timeline &amp; Delivery (Click to Toggle Status)
+                      </p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                        {init.milestones.map((m) => (
-                          <div
-                            key={m.label}
-                            className="rounded-lg border border-ocean-100 bg-ocean-50/40 p-2.5 text-xs dark:border-ocean-800 dark:bg-ocean-900/40"
-                          >
-                            <span className="font-semibold text-ocean-900 dark:text-white">{m.label}</span>
-                            <span className="block text-[11px] text-ocean-600 dark:text-ocean-400 mt-0.5">{m.description}</span>
-                          </div>
-                        ))}
+                        {init.milestones.map((m) => {
+                          const mKey = `${init.id}-${m.label}`;
+                          const isDone = milestonesState[mKey] ?? false;
+                          return (
+                            <button
+                              key={m.label}
+                              type="button"
+                              onClick={() => toggleMilestone(mKey)}
+                              className={`rounded-lg border p-2.5 text-left text-xs transition ${
+                                isDone
+                                  ? "border-leaf-500/40 bg-leaf-500/10 text-leaf-950 dark:text-leaf-200"
+                                  : "border-ocean-100 bg-ocean-50/40 hover:border-ocean-300 dark:border-ocean-800 dark:bg-ocean-900/40"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-ocean-900 dark:text-white">{m.label}</span>
+                                {isDone ? (
+                                  <Badge tone="leaf">Completed</Badge>
+                                ) : (
+                                  <span className="font-mono text-[10px] text-ocean-500">In Progress</span>
+                                )}
+                              </div>
+                              <span className="block text-[11px] text-ocean-600 dark:text-ocean-400 mt-1">
+                                {m.description}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -650,9 +781,14 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                 </p>
               </div>
 
-              <Button href="/transparency" size="sm" variant="secondary">
-                Public Dashboard <ExternalLink className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleExportFinances} size="sm" variant="ghost">
+                  <Download className="h-4 w-4" /> Export Ledger (.CSV)
+                </Button>
+                <Button href="/transparency" size="sm" variant="secondary">
+                  Public Dashboard <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -725,6 +861,130 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
           </div>
         )}
       </main>
+
+      {/* Issue Inspection & Triage Modal */}
+      {selectedIssue && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ocean-950/60 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedIssue(null)}
+        >
+          <Card
+            className="w-full max-w-xl p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge tone={selectedIssue.urgency === "CRITICAL" ? "gold" : "ocean"}>
+                    {selectedIssue.urgency} URGENCY
+                  </Badge>
+                  <span className="font-mono text-xs text-ocean-500">{selectedIssue.id}</span>
+                </div>
+                <h3 className="mt-2 font-display text-lg font-semibold text-ocean-950 dark:text-white">
+                  {selectedIssue.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedIssue(null)}
+                className="rounded-full p-1 text-ocean-500 hover:bg-ocean-100 dark:hover:bg-ocean-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="my-4 space-y-4">
+              {/* Reporter and Geolocation Details */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-ocean-100 bg-ocean-50/50 p-3 dark:border-ocean-800 dark:bg-ocean-900/40">
+                  <p className="font-semibold text-ocean-950 dark:text-white flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-ocean-500" /> Location
+                  </p>
+                  <p className="mt-1 text-ocean-700 dark:text-ocean-300">
+                    {selectedIssue.community}, {selectedIssue.town}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] text-ocean-500">
+                    {selectedIssue.latitude
+                      ? `${selectedIssue.latitude.toFixed(4)}° N, ${selectedIssue.longitude?.toFixed(4)}° E`
+                      : "GPS coordinates not pinned"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-ocean-100 bg-ocean-50/50 p-3 dark:border-ocean-800 dark:bg-ocean-900/40">
+                  <p className="font-semibold text-ocean-950 dark:text-white flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-ocean-500" /> Reporter Contact
+                  </p>
+                  <p className="mt-1 text-ocean-700 dark:text-ocean-300">
+                    {selectedIssue.reporterName || "Local Community Resident"}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] text-ocean-500">
+                    {selectedIssue.phone || "+233 24 000 0000"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Narrative description */}
+              <div className="rounded-xl border border-ocean-100 bg-white p-4 text-xs dark:border-ocean-800 dark:bg-ocean-900">
+                <p className="font-mono text-[10px] uppercase text-ocean-500">Field Report Description</p>
+                <p className="mt-1.5 leading-relaxed text-ocean-800 dark:text-ocean-200">
+                  {selectedIssue.description}
+                </p>
+                {selectedIssue.suggestedSolution && (
+                  <p className="mt-2 text-xs italic text-ocean-600 dark:text-ocean-400">
+                    Proposed Solution: {selectedIssue.suggestedSolution}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-ocean-500 border-t border-ocean-100 pt-2 dark:border-ocean-800">
+                  <span>Logged: {formatDate(selectedIssue.createdAt)}</span>
+                  <span>Category: {selectedIssue.category}</span>
+                </div>
+              </div>
+
+              {/* Status Triage Workflow */}
+              <div className="rounded-xl border border-ocean-200/80 bg-ocean-50/70 p-4 dark:border-ocean-700/80 dark:bg-ocean-900/60">
+                <p className="font-display text-xs font-semibold text-ocean-950 dark:text-white">
+                  Operational Triage &amp; Status Dispatch
+                </p>
+                <p className="mt-0.5 text-[11px] text-ocean-600 dark:text-ocean-400">
+                  Changing status updates the public Community Map and sends local notifications.
+                </p>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {(["SUBMITTED", "IN_REVIEW", "IN_PROGRESS", "RESOLVED"] as SurveyStatus[]).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => handleUpdateIssueStatus(selectedIssue.id, st)}
+                      className={`rounded-lg py-1.5 px-2 text-xs font-semibold transition ${
+                        selectedIssue.status === st
+                          ? "bg-ocean-700 text-white shadow-sm"
+                          : "border border-ocean-200 bg-white text-ocean-700 hover:bg-ocean-100 dark:border-ocean-700 dark:bg-ocean-800 dark:text-ocean-300"
+                      }`}
+                    >
+                      {labelize(st)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center border-t border-ocean-100 pt-3 dark:border-ocean-800">
+              <Button
+                href="/community-map"
+                size="sm"
+                variant="ghost"
+              >
+                <Navigation className="h-3.5 w-3.5" /> View on Map
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setSelectedIssue(null)}
+              >
+                Done
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
