@@ -36,6 +36,15 @@ import {
   CheckSquare,
   Square,
   Lock,
+  Award,
+  Calendar,
+  BookOpen,
+  Mail,
+  UserCheck,
+  DollarSign,
+  FileText,
+  PlusCircle,
+  Paperclip,
 } from "lucide-react";
 import type { LocalSession } from "@/lib/local-session";
 import {
@@ -45,6 +54,7 @@ import {
   surveyReports,
   type SurveyReport,
   type SurveyStatus,
+  type Initiative,
 } from "@/lib/mock-data";
 import { getLocalReports, type LocalSurveyReport } from "@/lib/local-reports";
 import { Card, Badge, Button, ProgressBar } from "@/components/ui";
@@ -58,7 +68,39 @@ import { FilamentCommandPalette } from "./filament/filament-command-palette";
 import { FilamentNotifications } from "./filament/filament-notifications";
 import { cn } from "@/lib/utils";
 
-export type AdminTab = "overview" | "issues" | "volunteers" | "initiatives" | "finances";
+// New modular admin subcomponents
+import { AdminApplicationsDesk } from "./admin/admin-applications-desk";
+import { AdminCertificateIssuer } from "./admin/admin-certificate-issuer";
+import { AdminEventsManager } from "./admin/admin-events-manager";
+import { AdminBlogCms } from "./admin/admin-blog-cms";
+import { AdminAuditLog } from "./admin/admin-audit-log";
+import { AdminSubscribersHub } from "./admin/admin-subscribers-hub";
+import { AdminSettings } from "./admin/admin-settings";
+import { CommunityMapExplorer } from "@/components/community-map-explorer";
+import {
+  getManualDonations,
+  saveManualDonation,
+  getManualExpenditures,
+  saveManualExpenditure,
+  addAuditEntry,
+  type ManualDonationEntry,
+  type ManualExpenditureEntry,
+} from "@/lib/admin-store";
+
+export type AdminTab =
+  | "overview"
+  | "issues"
+  | "map"
+  | "volunteers"
+  | "applications"
+  | "certificates"
+  | "initiatives"
+  | "events"
+  | "blog"
+  | "finances"
+  | "audit"
+  | "subscribers"
+  | "settings";
 
 const VOLUNTEER_STORAGE_KEY = "tcp:volunteer-hours";
 const ISSUES_STORAGE_KEY = "tcp:admin-issue-statuses";
@@ -107,6 +149,46 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
 
   // Milestones state
   const [milestonesState, setMilestonesState] = useState<Record<string, boolean>>({});
+
+  // Resolution notes & assigned officers
+  const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({
+    "survey-s1": "Referred to South Tongu District Works Dept on 12 Sept for structural inspection.",
+  });
+  const [assignedOfficers, setAssignedOfficers] = useState<Record<string, string>>({
+    "survey-s1": "Selorm Dzreke (District Coordinator)",
+    "survey-s2": "Hon. Seth Agbenu (Assembly Liaison)",
+  });
+
+  // Initiatives state
+  const [initiativesList, setInitiativesList] = useState<Initiative[]>(initiatives);
+  const [newInitiativeModalOpen, setNewInitiativeModalOpen] = useState(false);
+
+  // Manual finances state
+  const [manualDonations, setManualDonations] = useState<ManualDonationEntry[]>(() => getManualDonations());
+  const [manualExpenditures, setManualExpenditures] = useState<ManualExpenditureEntry[]>(() => getManualExpenditures());
+  const [newDonationModalOpen, setNewDonationModalOpen] = useState(false);
+  const [newExpenditureModalOpen, setNewExpenditureModalOpen] = useState(false);
+
+  // Form states for New Initiative
+  const [initTitle, setInitTitle] = useState("");
+  const [initCategory, setInitCategory] = useState("Community Infrastructure");
+  const [initBudget, setInitBudget] = useState(25000);
+  const [initLocation, setInitLocation] = useState("Sogakope Central");
+  const [initSummary, setInitSummary] = useState("");
+
+  // Form states for Offline Donation
+  const [donDonor, setDonDonor] = useState("");
+  const [donAmount, setDonAmount] = useState(500);
+  const [donMethod, setDonMethod] = useState<"CASH" | "DIRECT_MOMO" | "BANK_WIRE" | "ASSEMBLY_GRANT">("DIRECT_MOMO");
+  const [donRef, setDonRef] = useState("");
+  const [donNotes, setDonNotes] = useState("");
+
+  // Form states for Logged Expenditure
+  const [expDesc, setExpDesc] = useState("");
+  const [expAmount, setExpAmount] = useState(350);
+  const [expCat, setExpCat] = useState<"PROGRAMS" | "ADMINISTRATION" | "FUNDRAISING" | "COMMUNITY_WORKS">("COMMUNITY_WORKS");
+  const [expInitTitle, setExpInitTitle] = useState("Youth Skills & Livelihood");
+  const [expReceipt, setExpReceipt] = useState("receipt_invoice_ST_09.pdf");
 
   // Finances filter tab
   const [financesFilterTab, setFinancesFilterTab] = useState<string>("ALL");
@@ -246,14 +328,9 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   // Filament Navigation Groups
   const navigationGroups: { label: string; items: FilamentNavItem[] }[] = [
     {
-      label: "DASHBOARD",
+      label: "OPERATIONS",
       items: [
         { id: "overview" as AdminTab, label: "Overview", icon: LayoutDashboard },
-      ],
-    },
-    {
-      label: "FIELD OPERATIONS",
-      items: [
         {
           id: "issues" as AdminTab,
           label: "Community Issues",
@@ -261,6 +338,12 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
           badge: criticalIssuesCount > 0 ? `${criticalIssuesCount} Urgent` : undefined,
           badgeTone: "danger" as const,
         },
+        { id: "map" as AdminTab, label: "Geospatial Map", icon: MapPin },
+      ],
+    },
+    {
+      label: "COMMUNITY & FIELD",
+      items: [
         {
           id: "volunteers" as AdminTab,
           label: "Volunteer Hours",
@@ -268,13 +351,36 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
           badge: pendingHoursCount > 0 ? `${pendingHoursCount} Pending` : undefined,
           badgeTone: "warning" as const,
         },
+        {
+          id: "applications" as AdminTab,
+          label: "Applications Desk",
+          icon: UserCheck,
+          badge: "4 Active",
+          badgeTone: "warning" as const,
+        },
+        { id: "certificates" as AdminTab, label: "Certificate Issuer", icon: Award },
       ],
     },
     {
-      label: "CIVIC ASSETS",
+      label: "PROGRAMS & CMS",
       items: [
         { id: "initiatives" as AdminTab, label: "Initiatives & Capital", icon: FolderGit2 },
+        { id: "events" as AdminTab, label: "Community Events", icon: Calendar },
+        { id: "blog" as AdminTab, label: "News & Editorial", icon: BookOpen },
+      ],
+    },
+    {
+      label: "FINANCE & AUDIT",
+      items: [
         { id: "finances" as AdminTab, label: "Financial Ledger", icon: Receipt },
+        { id: "audit" as AdminTab, label: "Audit Trail", icon: ShieldCheck },
+      ],
+    },
+    {
+      label: "SYSTEM",
+      items: [
+        { id: "subscribers" as AdminTab, label: "Newsletter Hub", icon: Mail },
+        { id: "settings" as AdminTab, label: "District Settings", icon: SlidersHorizontal },
       ],
     },
   ];
@@ -396,6 +502,18 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
           tone: "success",
         });
       });
+    manualDonations.forEach((d) => {
+      list.push({
+        id: d.id,
+        type: "DONATION",
+        reference: d.reference,
+        entity: d.donorName,
+        category: d.method.replace("_", " "),
+        date: new Date(d.createdAt),
+        amount: d.amount,
+        tone: "success",
+      });
+    });
     expenditures.forEach((e) => {
       list.push({
         id: e.id,
@@ -408,10 +526,22 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
         tone: "expense",
       });
     });
+    manualExpenditures.forEach((e) => {
+      list.push({
+        id: e.id,
+        type: "EXPENDITURE",
+        reference: e.id,
+        entity: e.description,
+        category: labelize(e.category),
+        date: new Date(e.date),
+        amount: -e.amount,
+        tone: "expense",
+      });
+    });
     if (financesFilterTab === "DONATIONS") return list.filter((f) => f.type === "DONATION");
     if (financesFilterTab === "EXPENDITURES") return list.filter((f) => f.type === "EXPENDITURE");
     return list;
-  }, [financesFilterTab]);
+  }, [financesFilterTab, manualDonations, manualExpenditures]);
 
   const financeFilterTabs: FilamentFilterTab[] = [
     { id: "ALL", label: "All Ledger Rows", badge: combinedFinances.length },
@@ -719,9 +849,17 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
               <h1 className="font-display text-2xl font-bold text-ocean-950 dark:text-white sm:text-3xl">
                 {activeTab === "overview" && "Operations Overview"}
                 {activeTab === "issues" && "Community Issues Desk"}
+                {activeTab === "map" && "South Tongu Geospatial Hotspots"}
                 {activeTab === "volunteers" && "Volunteer Service Ledger"}
+                {activeTab === "applications" && "Civic Applications Review Desk"}
+                {activeTab === "certificates" && "Commendation & Certificate Issuer"}
                 {activeTab === "initiatives" && "Civic Initiatives & Milestones"}
+                {activeTab === "events" && "Community Outreach Events & RSVPs"}
+                {activeTab === "blog" && "Civic News & Editorial CMS"}
                 {activeTab === "finances" && "Financial Ledger & Paystack Audit"}
+                {activeTab === "audit" && "System Audit Trail & Operations Log"}
+                {activeTab === "subscribers" && "Newsletter & Broadcast Hub"}
+                {activeTab === "settings" && "District Assembly & Platform Settings"}
               </h1>
               <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">
                 South Tongu District Assembly · Live verified operations database
@@ -729,7 +867,7 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
             </div>
 
             {/* Filament Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {activeTab === "issues" && (
                 <>
                   <button
@@ -751,14 +889,40 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                 </>
               )}
 
-              {activeTab === "finances" && (
+              {activeTab === "initiatives" && (
                 <button
                   type="button"
-                  onClick={handleExportFinances}
+                  onClick={() => setNewInitiativeModalOpen(true)}
                   className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
                 >
-                  <Download className="h-4 w-4" /> Export Audited Ledger (CSV)
+                  <Plus className="h-4 w-4" /> Create New Initiative
                 </button>
+              )}
+
+              {activeTab === "finances" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setNewDonationModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-800 hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-emerald-500" /> Record Offline Donation
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewExpenditureModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-800 hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-rose-500" /> Log Expenditure
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportFinances}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
+                  >
+                    <Download className="h-4 w-4" /> Export CSV
+                  </button>
+                </>
               )}
 
               {activeTab === "overview" && (
@@ -959,7 +1123,7 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
           {/* ----------------------------------------------------------- */}
           {activeTab === "initiatives" && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {initiatives.map((init) => {
+              {initiativesList.map((init) => {
                 const isMilestoneDelivered = milestonesState[`milestone-${init.id}`] ?? false;
                 return (
                   <div
@@ -1034,6 +1198,50 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                 ]}
               />
             </div>
+          )}
+
+          {/* TAB 6: GEOSPATIAL MAP VIEW */}
+          {activeTab === "map" && (
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-xl border border-ocean-200/80 bg-white p-4 shadow-xs dark:border-ocean-800 dark:bg-[#0c1322]">
+                <CommunityMapExplorer seededReports={surveyReports} />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: APPLICATIONS DESK */}
+          {activeTab === "applications" && (
+            <AdminApplicationsDesk coordinatorName={session.name} onNotify={showToast} />
+          )}
+
+          {/* TAB 8: CERTIFICATE ISSUER */}
+          {activeTab === "certificates" && (
+            <AdminCertificateIssuer coordinatorName={session.name} onNotify={showToast} />
+          )}
+
+          {/* TAB 9: COMMUNITY EVENTS */}
+          {activeTab === "events" && (
+            <AdminEventsManager coordinatorName={session.name} onNotify={showToast} />
+          )}
+
+          {/* TAB 10: EDITORIAL BLOG CMS */}
+          {activeTab === "blog" && (
+            <AdminBlogCms coordinatorName={session.name} onNotify={showToast} />
+          )}
+
+          {/* TAB 11: AUDIT TRAIL */}
+          {activeTab === "audit" && (
+            <AdminAuditLog onNotify={showToast} />
+          )}
+
+          {/* TAB 12: SUBSCRIBERS HUB */}
+          {activeTab === "subscribers" && (
+            <AdminSubscribersHub coordinatorName={session.name} onNotify={showToast} />
+          )}
+
+          {/* TAB 13: SETTINGS */}
+          {activeTab === "settings" && (
+            <AdminSettings coordinatorName={session.name} onNotify={showToast} />
           )}
         </main>
       </div>
@@ -1118,6 +1326,47 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                   ))}
                 </div>
               </div>
+
+              {/* Officer Assignment */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-ocean-500">
+                  Assigned Field Officer / Liaison
+                </label>
+                <select
+                  value={assignedOfficers[selectedIssue.id] || "Selorm Dzreke (District Coordinator)"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAssignedOfficers({ ...assignedOfficers, [selectedIssue.id]: val });
+                    showToast(`Assigned issue to ${val}`);
+                  }}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                >
+                  <option value="Selorm Dzreke (District Coordinator)">Selorm Dzreke (District Coordinator)</option>
+                  <option value="Hon. Seth Agbenu (Assembly Liaison)">Hon. Seth Agbenu (Assembly Liaison)</option>
+                  <option value="Kwesi Mensah (Field Operations Lead)">Kwesi Mensah (Field Operations Lead)</option>
+                  <option value="Peace Kpodo (Community Health Lead)">Peace Kpodo (Community Health Lead)</option>
+                  <option value="South Tongu District Works Dept">South Tongu District Works Dept</option>
+                </select>
+              </div>
+
+              {/* Resolution & Works Notes */}
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-ocean-500">
+                  Official Resolution &amp; Works Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Log contractor dispatch records, assembly referrals, or resolution notes..."
+                  value={resolutionNotes[selectedIssue.id] || ""}
+                  onChange={(e) => {
+                    setResolutionNotes({ ...resolutionNotes, [selectedIssue.id]: e.target.value });
+                  }}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+                <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  ✓ Automatic citizen SMS notification queued for {selectedIssue.phone || "+233 24 551 0921"}
+                </p>
+              </div>
             </div>
 
             {/* Modal Footer */}
@@ -1133,6 +1382,408 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                 Close Drawer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. NEW INITIATIVE MODAL */}
+      {newInitiativeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setNewInitiativeModalOpen(false)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Create New Civic Initiative</h3>
+              <button onClick={() => setNewInitiativeModalOpen(false)} className="rounded p-1 text-ocean-400 hover:text-ocean-700">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!initTitle.trim()) return;
+                const newInit: Initiative = {
+                  id: `init-${Date.now()}`,
+                  slug: initTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                  title: initTitle,
+                  summary: initSummary || "Community-driven civic initiative funded through district transparency partnerships.",
+                  description: initSummary || "Community-driven civic initiative funded through district transparency partnerships.",
+                  coverImage: null,
+                  category: initCategory,
+                  objectives: ["Civic mobilization", "Infrastructure restoration", "Community oversight"],
+                  sdgTags: ["SDG 6: Clean Water", "SDG 11: Sustainable Communities"],
+                  status: "ACTIVE",
+                  budget: Number(initBudget),
+                  amountRaised: 0,
+                  location: initLocation,
+                  beneficiaries: "3,500 residents",
+                  volunteersInvolved: 15,
+                  startDate: new Date(),
+                  endDate: null,
+                  createdAt: new Date(),
+                  milestones: [
+                    {
+                      label: "Phase 1: Stakeholder Mobilization",
+                      description: "Assembly approval and site scoping.",
+                      date: new Date(),
+                      status: "current",
+                    },
+                  ],
+                };
+                setInitiativesList([newInit, ...initiativesList]);
+                setNewInitiativeModalOpen(false);
+                setInitTitle("");
+                setInitSummary("");
+                addAuditEntry({
+                  actor: session.name,
+                  action: "INITIATIVE_CREATED",
+                  entityType: "INITIATIVE",
+                  entityId: newInit.id,
+                  details: `Created new initiative: "${newInit.title}" (Budget: GHS ${newInit.budget.toLocaleString()})`,
+                });
+                showToast(`Created initiative "${newInit.title}"`);
+              }}
+              className="mt-4 space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Initiative Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sogakope Youth Digital & Livelihoods Hub"
+                  value={initTitle}
+                  onChange={(e) => setInitTitle(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={initCategory}
+                    onChange={(e) => setInitCategory(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="Community Infrastructure">Infrastructure</option>
+                    <option value="Youth Empowerment">Youth Empowerment</option>
+                    <option value="Civic Education">Civic Education</option>
+                    <option value="Environmental Sanitation">Sanitation &amp; Ecology</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Target Budget (GHS) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={initBudget}
+                    onChange={(e) => setInitBudget(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Location / Community Area
+                </label>
+                <input
+                  type="text"
+                  value={initLocation}
+                  onChange={(e) => setInitLocation(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Summary &amp; Community Impact
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Outline key community outcomes, beneficiaries, and milestones..."
+                  value={initSummary}
+                  onChange={(e) => setInitSummary(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-2 border-t border-ocean-100 pt-3 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setNewInitiativeModalOpen(false)}
+                  className="rounded-lg border border-ocean-200 px-3 py-1.5 font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Initiative
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. MANUAL OFFLINE DONATION MODAL */}
+      {newDonationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setNewDonationModalOpen(false)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Record Offline / Direct Donation</h3>
+              <button onClick={() => setNewDonationModalOpen(false)} className="rounded p-1 text-ocean-400 hover:text-ocean-700">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!donDonor.trim()) return;
+                const ref = donRef.trim() || `OFFLINE-${Date.now().toString().slice(-6)}`;
+                const next = saveManualDonation(
+                  {
+                    donorName: donDonor,
+                    donorEmail: "manual.donor@offline.org",
+                    amount: Number(donAmount),
+                    method: donMethod,
+                    reference: ref,
+                    notes: donNotes,
+                    recordedBy: session.name,
+                  },
+                  session.name
+                );
+                setManualDonations(next);
+                setNewDonationModalOpen(false);
+                setDonDonor("");
+                setDonRef("");
+                setDonNotes("");
+                showToast(`Recorded offline donation of GHS ${donAmount.toLocaleString()} from ${donDonor}`);
+              }}
+              className="mt-4 space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Donor / Entity Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. South Tongu Traders Association"
+                  value={donDonor}
+                  onChange={(e) => setDonDonor(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Amount (GHS) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={donAmount}
+                    onChange={(e) => setDonAmount(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    value={donMethod}
+                    onChange={(e) => setDonMethod(e.target.value as any)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="DIRECT_MOMO">Direct MoMo Transfer</option>
+                    <option value="CASH">Cash Donation</option>
+                    <option value="BANK_WIRE">Bank Wire Transfer</option>
+                    <option value="ASSEMBLY_GRANT">Assembly Matching Grant</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Transaction / Receipt Reference
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. MTN-MOMO-882319 or CHQ-0041"
+                  value={donRef}
+                  onChange={(e) => setDonRef(e.target.value)}
+                  className="w-full font-mono rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Auditor Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Optional context on fund designation or donor requests..."
+                  value={donNotes}
+                  onChange={(e) => setDonNotes(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-2 border-t border-ocean-100 pt-3 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setNewDonationModalOpen(false)}
+                  className="rounded-lg border border-ocean-200 px-3 py-1.5 font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save to Audited Ledger
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. LOG EXPENDITURE MODAL */}
+      {newExpenditureModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setNewExpenditureModalOpen(false)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Log Project Expenditure</h3>
+              <button onClick={() => setNewExpenditureModalOpen(false)} className="rounded p-1 text-ocean-400 hover:text-ocean-700">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!expDesc.trim()) return;
+                const next = saveManualExpenditure(
+                  {
+                    category: expCat,
+                    description: expDesc,
+                    amount: Number(expAmount),
+                    date: new Date().toISOString(),
+                    initiativeTitle: expInitTitle,
+                    receiptFileName: expReceipt,
+                    recordedBy: session.name,
+                  },
+                  session.name
+                );
+                setManualExpenditures(next);
+                setNewExpenditureModalOpen(false);
+                setExpDesc("");
+                showToast(`Logged expenditure of GHS ${expAmount.toLocaleString()} for ${expDesc}`);
+              }}
+              className="mt-4 space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Item Description &amp; Vendor *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 50 Bags of Cement from Sogakope Hardware Ltd"
+                  value={expDesc}
+                  onChange={(e) => setExpDesc(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Amount (GHS) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={expAmount}
+                    onChange={(e) => setExpAmount(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Expense Category
+                  </label>
+                  <select
+                    value={expCat}
+                    onChange={(e) => setExpCat(e.target.value as any)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="COMMUNITY_WORKS">Community Works</option>
+                    <option value="PROGRAMS">Program Delivery</option>
+                    <option value="ADMINISTRATION">Administration &amp; Logistics</option>
+                    <option value="FUNDRAISING">Civic Mobilization</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Receipt / Invoice Filename Attachment
+                </label>
+                <div className="flex items-center gap-2">
+                  <Paperclip className="h-4 w-4 text-ocean-400" />
+                  <input
+                    type="text"
+                    value={expReceipt}
+                    onChange={(e) => setExpReceipt(e.target.value)}
+                    className="w-full font-mono rounded-lg border border-ocean-200 bg-white p-2 text-xs text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-2 border-t border-ocean-100 pt-3 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setNewExpenditureModalOpen(false)}
+                  className="rounded-lg border border-ocean-200 px-3 py-1.5 font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-rose-600 px-4 py-1.5 font-bold text-white hover:bg-rose-500"
+                >
+                  Save Expenditure
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

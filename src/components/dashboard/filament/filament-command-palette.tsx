@@ -1,8 +1,25 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Search, X, AlertTriangle, Users, FolderGit2, Receipt, ArrowRight, CornerDownLeft, Sparkles } from "lucide-react";
 import { surveyReports } from "@/lib/mock-data";
+import {
+  Search,
+  X,
+  AlertTriangle,
+  Users,
+  FolderGit2,
+  Receipt,
+  ArrowRight,
+  CornerDownLeft,
+  Sparkles,
+  MapPin,
+  Award,
+  Calendar,
+  BookOpen,
+  ShieldCheck,
+  Mail,
+  SlidersHorizontal,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CommandItem {
@@ -85,6 +102,17 @@ export function FilamentCommandPalette({
         },
       },
       {
+        id: "nav-map",
+        category: "Navigation",
+        title: "Geospatial Hotspots Map",
+        subtitle: "Interactive South Tongu incident map & coordinates",
+        icon: MapPin,
+        action: () => {
+          onNavigateTab("map");
+          onClose();
+        },
+      },
+      {
         id: "nav-volunteers",
         category: "Navigation",
         title: "Volunteer Service Ledger",
@@ -94,6 +122,28 @@ export function FilamentCommandPalette({
         icon: Users,
         action: () => {
           onNavigateTab("volunteers");
+          onClose();
+        },
+      },
+      {
+        id: "nav-applications",
+        category: "Navigation",
+        title: "Applications Review Desk",
+        subtitle: "Volunteer signups & institutional partnership proposals",
+        icon: Users,
+        action: () => {
+          onNavigateTab("applications");
+          onClose();
+        },
+      },
+      {
+        id: "nav-certificates",
+        category: "Navigation",
+        title: "Certificate & Commendation Issuer",
+        subtitle: "Generate cryptographically verifiable volunteer certificates",
+        icon: Award,
+        action: () => {
+          onNavigateTab("certificates");
           onClose();
         },
       },
@@ -109,13 +159,68 @@ export function FilamentCommandPalette({
         },
       },
       {
+        id: "nav-events",
+        category: "Navigation",
+        title: "Community Outreach Events",
+        subtitle: "Schedule town halls, cleanup drives & manage RSVPs",
+        icon: Calendar,
+        action: () => {
+          onNavigateTab("events");
+          onClose();
+        },
+      },
+      {
+        id: "nav-blog",
+        category: "Navigation",
+        title: "Civic News & Editorial CMS",
+        subtitle: "Draft and publish community bulletins & impact stories",
+        icon: BookOpen,
+        action: () => {
+          onNavigateTab("blog");
+          onClose();
+        },
+      },
+      {
         id: "nav-finances",
         category: "Navigation",
-        title: "Financial Ledger & Paystack Payouts",
+        title: "Financial Ledger & Offline Donations",
         subtitle: "Audited disbursements, transparency reporting, and CSV exports",
         icon: Receipt,
         action: () => {
           onNavigateTab("finances");
+          onClose();
+        },
+      },
+      {
+        id: "nav-audit",
+        category: "Navigation",
+        title: "System Audit Trail & Log",
+        subtitle: "Immutable chronological record of coordinator actions",
+        icon: ShieldCheck,
+        action: () => {
+          onNavigateTab("audit");
+          onClose();
+        },
+      },
+      {
+        id: "nav-subscribers",
+        category: "Navigation",
+        title: "Newsletter & Citizen Subscribers",
+        subtitle: "Subscriber list and community bulletin broadcast",
+        icon: Mail,
+        action: () => {
+          onNavigateTab("subscribers");
+          onClose();
+        },
+      },
+      {
+        id: "nav-settings",
+        category: "Navigation",
+        title: "District & Gateway Settings",
+        subtitle: "Assembly contacts, emergency hotlines & Paystack keys",
+        icon: SlidersHorizontal,
+        action: () => {
+          onNavigateTab("settings");
           onClose();
         },
       },
