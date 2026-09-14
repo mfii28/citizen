@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     setPending(true);
     const demo = DEMO_ACCOUNTS.admin;
     setSession({ name: demo.name, email: demo.email, role: "admin" });
-    router.push("/admin/dashboard");
+    router.push("/admin");
   };
 
   const handleFormLogin = (e: React.FormEvent) => {
@@ -25,7 +25,7 @@ export default function AdminLoginPage() {
     if (!email) return;
     setPending(true);
     setSession({ name: nameFromEmail(email), email, role: "admin" });
-    router.push("/admin/dashboard");
+    router.push("/admin");
   };
 
   return (

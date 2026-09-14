@@ -28,7 +28,8 @@ export default function RegisterPage() {
               e.preventDefault();
               setPending(true);
               setSession({ name, email, role });
-              router.push("/dashboard");
+              const target = role === "admin" ? "/admin" : role === "volunteer" ? "/volunteer" : "/user";
+              router.push(target);
             }}
             className="space-y-4"
           >

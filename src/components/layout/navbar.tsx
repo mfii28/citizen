@@ -60,6 +60,14 @@ export function Navbar() {
     setSession(getSession());
   }, [pathname]);
 
+  const portalHref = session
+    ? session.role === "admin"
+      ? "/admin"
+      : session.role === "volunteer"
+      ? "/volunteer"
+      : "/user"
+    : "/login";
+
   return (
     <header className="sticky top-0 z-50 border-b border-ocean-100 bg-white/90 backdrop-blur-md dark:border-ocean-900 dark:bg-ocean-950/90">
       <div className="container-page flex h-16 items-center justify-between gap-4">
@@ -81,7 +89,10 @@ export function Navbar() {
                     <Link
                       key={sub.href}
                       href={sub.href}
-                      className="block rounded-lg px-3 py-2 text-sm text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-800"
+                      className={cn(
+                        "block rounded-lg px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-800/60",
+                        pathname === sub.href && "bg-ocean-50 text-ocean-900 font-semibold dark:bg-ocean-800 dark:text-white"
+                      )}
                     >
                       {sub.label}
                     </Link>
@@ -93,8 +104,8 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900",
-                  pathname === item.href && "bg-ocean-50 text-ocean-900 dark:bg-ocean-900 dark:text-white"
+                  "shrink-0 rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900",
+                  pathname === item.href && "bg-ocean-50 text-ocean-900 font-semibold dark:bg-ocean-800 dark:text-white"
                 )}
               >
                 {item.label}
@@ -109,10 +120,10 @@ export function Navbar() {
           </Link>
           {session ? (
             <Link
-              href="/dashboard"
+              href={portalHref}
               className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
             >
-              <User className="h-4 w-4" /> {session.name.split(" ")[0] || "Dashboard"}
+              <User className="h-4 w-4" /> {session.name.split(" ")[0] || "Portal"}
             </Link>
           ) : (
             <Link
@@ -186,11 +197,11 @@ export function Navbar() {
             <div className="mt-2 border-t border-ocean-100 pt-3 dark:border-ocean-900">
               {session ? (
                 <Link
-                  href="/dashboard"
+                  href={portalHref}
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
                 >
-                  <User className="h-4 w-4" /> {session.name || "Dashboard"}
+                  <User className="h-4 w-4" /> {session.name || "Portal"}
                 </Link>
               ) : (
                 <Link

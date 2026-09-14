@@ -21,11 +21,11 @@ export default function LoginPage() {
     const demo = DEMO_ACCOUNTS[demoRole];
     setSession({ name: demo.name, email: demo.email, role: demo.role });
     if (demoRole === "admin") {
-      router.push("/admin/dashboard");
+      router.push("/admin");
     } else if (demoRole === "volunteer") {
-      router.push("/volunteer/dashboard");
+      router.push("/volunteer");
     } else {
-      router.push("/user/dashboard");
+      router.push("/user");
     }
   };
 
@@ -51,7 +51,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ocean-950 dark:text-white">Citizen Supporter</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/user/dashboard</code></p>
+                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/user</code></p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-ocean-400" />
@@ -68,7 +68,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ocean-950 dark:text-white">Volunteer / Ambassador</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/volunteer/dashboard</code></p>
+                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/volunteer</code></p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-ocean-400" />
@@ -85,7 +85,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ocean-950 dark:text-white">District Coordinator (Admin)</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/admin/dashboard</code></p>
+                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/admin</code></p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-ocean-400" />
@@ -133,7 +133,8 @@ export default function LoginPage() {
               e.preventDefault();
               setPending(true);
               setSession({ name: nameFromEmail(email), email, role });
-              router.push("/dashboard");
+              const target = role === "admin" ? "/admin" : role === "volunteer" ? "/volunteer" : "/user";
+              router.push(target);
             }}
             className="space-y-4"
           >

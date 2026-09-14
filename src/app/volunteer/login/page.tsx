@@ -17,7 +17,7 @@ export default function VolunteerLoginPage() {
     setPending(true);
     const demo = DEMO_ACCOUNTS.volunteer;
     setSession({ name: demo.name, email: demo.email, role: "volunteer" });
-    router.push("/volunteer/dashboard");
+    router.push("/volunteer");
   };
 
   const handleFormLogin = (e: React.FormEvent) => {
@@ -25,7 +25,7 @@ export default function VolunteerLoginPage() {
     if (!email) return;
     setPending(true);
     setSession({ name: nameFromEmail(email), email, role: "volunteer" });
-    router.push("/volunteer/dashboard");
+    router.push("/volunteer");
   };
 
   return (

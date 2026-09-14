@@ -17,7 +17,7 @@ export default function UserLoginPage() {
     setPending(true);
     const demo = DEMO_ACCOUNTS.user;
     setSession({ name: demo.name, email: demo.email, role: "user" });
-    router.push("/user/dashboard");
+    router.push("/user");
   };
 
   const handleFormLogin = (e: React.FormEvent) => {
@@ -25,7 +25,7 @@ export default function UserLoginPage() {
     if (!email) return;
     setPending(true);
     setSession({ name: nameFromEmail(email), email, role: "user" });
-    router.push("/user/dashboard");
+    router.push("/user");
   };
 
   return (
@@ -106,7 +106,7 @@ export default function UserLoginPage() {
             </div>
 
             <Button type="submit" disabled={pending} className="w-full mt-2">
-              {pending ? "Signing in…" : "Sign in to Citizen Dashboard"}
+              {pending ? "Signing in…" : "Sign in to Citizen Portal"}
             </Button>
           </form>
 
