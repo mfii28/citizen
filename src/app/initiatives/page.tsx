@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { initiatives } from "@/lib/mock-data";
+import { initiatives, getProgressLabel } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge, ProgressBar } from "@/components/ui";
 import { formatGHS, percent } from "@/lib/utils";
 import { labelize } from "@/types";
@@ -41,6 +41,11 @@ export default function InitiativesPage() {
                       <span>of {formatGHS(i.budget)}</span>
                     </div>
                     <div className="mt-1.5"><ProgressBar value={percent(i.amountRaised, i.budget)} /></div>
+                    {getProgressLabel(i) && (
+                      <p className="mt-2 truncate font-mono text-xs text-ocean-600 dark:text-ocean-400">
+                        {getProgressLabel(i)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </Card>

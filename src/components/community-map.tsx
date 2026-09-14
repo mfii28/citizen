@@ -11,6 +11,7 @@ export type MapPin = {
   title: string;
   description: string;
   tone: "critical" | "high" | "medium" | "low";
+  source: "seed" | "local";
 };
 
 const TONE_COLORS: Record<MapPin["tone"], string> = {
@@ -20,7 +21,7 @@ const TONE_COLORS: Record<MapPin["tone"], string> = {
   low: "#3D9A6C",
 };
 
-export function CommunityMap({ pins }: { pins: MapPin[] }) {
+export function CommunityMap({ pins, onViewReport }: { pins: MapPin[]; onViewReport?: (id: string) => void }) {
   return (
     <MapContainer
       center={DISTRICT_CENTER}
@@ -42,11 +43,33 @@ export function CommunityMap({ pins }: { pins: MapPin[] }) {
             fillColor: TONE_COLORS[p.tone],
             fillOpacity: 0.85,
             weight: 2,
+            dashArray: p.source === "local" ? "3 3" : undefined,
           }}
         >
           <Popup>
             <p style={{ fontWeight: 600, margin: 0 }}>{p.title}</p>
             <p style={{ margin: "4px 0 0", fontSize: 13 }}>{p.description}</p>
+            {p.source === "local" && (
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "#C4841F", fontWeight: 600 }}>From this device</p>
+            )}
+            {onViewReport && (
+              <button
+                onClick={() => onViewReport(p.id)}
+                style={{
+                  marginTop: 8,
+                  padding: "5px 10px",
+                  borderRadius: 9999,
+                  border: "none",
+                  background: "#E8A233",
+                  color: "#081D26",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                View full report
+              </button>
+            )}
           </Popup>
         </CircleMarker>
       ))}

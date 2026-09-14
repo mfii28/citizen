@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getInitiativeBySlug, getEventsForInitiative } from "@/lib/mock-data";
+import { getInitiativeBySlug, getEventsForInitiative, getProgressLabel } from "@/lib/mock-data";
 import { Badge, ProgressBar, Button, Card } from "@/components/ui";
 import { ShareRow } from "@/components/share-row";
 import { FavoriteButton } from "@/components/favorite-button";
+import { MilestoneStepper } from "@/components/milestone-stepper";
 import { formatGHS, formatDate, percent } from "@/lib/utils";
 import { labelize } from "@/types";
 import { MapPin, Users, Target, CalendarRange } from "lucide-react";
@@ -57,6 +58,15 @@ export default function InitiativeDetailPage({ params }: { params: { slug: strin
               </ul>
             </div>
 
+            {initiative.milestones.length > 0 && (
+              <div>
+                <h2 className="font-display text-xl font-semibold text-ocean-950 dark:text-white">Progress</h2>
+                <div className="mt-4">
+                  <MilestoneStepper milestones={initiative.milestones} />
+                </div>
+              </div>
+            )}
+
             {initiativeEvents.length > 0 && (
               <div>
                 <h2 className="font-display text-xl font-semibold text-ocean-950 dark:text-white">Timeline</h2>
@@ -83,6 +93,12 @@ export default function InitiativeDetailPage({ params }: { params: { slug: strin
               </div>
               <div className="mt-2"><ProgressBar value={percent(raised, budget)} /></div>
               <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">Target: {formatGHS(budget)}</p>
+
+              {getProgressLabel(initiative) && (
+                <p className="mt-3 rounded-lg bg-ocean-50 px-3 py-2 font-mono text-xs text-ocean-700 dark:bg-ocean-800 dark:text-ocean-200">
+                  {getProgressLabel(initiative)}
+                </p>
+              )}
 
               <div className="mt-5 flex flex-col gap-2">
                 <Button href={`/donate?initiative=${initiative.id}`} className="w-full">Donate to this initiative</Button>

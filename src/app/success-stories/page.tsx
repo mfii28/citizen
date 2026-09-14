@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Play } from "lucide-react";
 import { successStories, initiatives } from "@/lib/mock-data";
 import { SectionHeading, Card, Badge } from "@/components/ui";
 
@@ -29,6 +30,25 @@ export default function SuccessStoriesPage() {
                 <h3 className="mt-2 font-display font-semibold text-ocean-950 dark:text-white">{s.title}</h3>
                 {s.beneficiaryName && <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">{s.beneficiaryName}</p>}
                 <p className="mt-2 text-sm text-ocean-600 dark:text-ocean-300">{s.story}</p>
+
+                {s.interview && (
+                  <div className="mt-4 border-t border-ocean-100 pt-4 dark:border-ocean-800">
+                    <div className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-ocean-700 to-ocean-950">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-ocean-900 transition group-hover:scale-105">
+                        <Play className="h-4 w-4 fill-current" />
+                      </span>
+                      <span className="absolute bottom-2 right-2 rounded-full bg-ocean-950/70 px-2 py-0.5 font-mono text-xs text-white">
+                        {s.interview.durationLabel}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs font-medium uppercase tracking-wide text-ocean-600 dark:text-ocean-400">
+                      {s.interview.kind === "video" ? "Video interview" : "Audio interview"} — footage coming soon
+                    </p>
+                    <p className="mt-1.5 text-sm italic text-ocean-700 dark:text-ocean-300">
+                      &ldquo;{s.interview.transcriptExcerpt}&rdquo;
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
           ))}

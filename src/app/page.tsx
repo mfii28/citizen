@@ -7,7 +7,7 @@ import {
   PartnersStrip,
   ClosingCta,
 } from "@/components/home/sections";
-import { initiatives, events, testimonials, partners, donations } from "@/lib/mock-data";
+import { initiatives, events, testimonials, partners, donations, getProgressLabel } from "@/lib/mock-data";
 
 function getHomeData() {
   const featuredInitiatives = [...initiatives]
@@ -62,6 +62,7 @@ export default function HomePage() {
           status: i.status,
           budget: i.budget,
           amountRaised: i.amountRaised,
+          progressLabel: getProgressLabel(i),
         }))}
       />
       {events.length > 0 && <UpcomingEvents events={events} />}

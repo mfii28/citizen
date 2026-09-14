@@ -12,6 +12,15 @@ export type PriorityLevel = "LOW" | "MEDIUM" | "HIGH";
 export type UrgencyLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type ExpenditureCategory = "PROGRAMS" | "ADMINISTRATION" | "FUNDRAISING" | "OTHER";
 
+export type MilestoneStatus = "complete" | "current" | "upcoming";
+
+export interface Milestone {
+  label: string;
+  description: string;
+  date: Date;
+  status: MilestoneStatus;
+}
+
 export interface Initiative {
   id: string;
   slug: string;
@@ -31,6 +40,7 @@ export interface Initiative {
   startDate: Date | null;
   endDate: Date | null;
   createdAt: Date;
+  milestones: Milestone[];
 }
 
 export interface Event {
@@ -94,6 +104,10 @@ export interface Partner {
 
 export interface SurveyReport {
   id: string;
+  reporterName: string | null;
+  phone: string | null;
+  occupation: string | null;
+  email: string | null;
   community: string;
   town: string;
   latitude: number | null;
@@ -101,6 +115,7 @@ export interface SurveyReport {
   category: string;
   title: string;
   description: string;
+  suggestedSolution: string | null;
   priority: PriorityLevel;
   urgency: UrgencyLevel;
   status: SurveyStatus;
@@ -123,6 +138,12 @@ export interface GalleryImage {
   initiativeId: string;
 }
 
+export interface Interview {
+  kind: "video" | "audio";
+  durationLabel: string;
+  transcriptExcerpt: string;
+}
+
 export interface SuccessStory {
   id: string;
   slug: string;
@@ -131,6 +152,7 @@ export interface SuccessStory {
   story: string;
   impactMetric: string | null;
   initiativeId: string | null;
+  interview: Interview | null;
 }
 
 export interface Report {
@@ -175,6 +197,13 @@ export const initiatives: Initiative[] = [
     startDate: new Date("2026-09-01"),
     endDate: new Date("2027-03-01"),
     createdAt: new Date("2026-07-01T10:00:00Z"),
+    milestones: [
+      { label: "Launch & Global Citizenship Seminar", description: "Public launch of the programme and an introductory seminar on global citizenship.", date: new Date("2026-09-12"), status: "complete" },
+      { label: "Know Yourself, Know Your Path", description: "Facilitated dialogue on adolescence and social vices with health partners.", date: new Date("2026-10-17"), status: "current" },
+      { label: "Our Community, Our Responsibility", description: "Play-based learning event on civic responsibility through drama and games.", date: new Date("2026-11-21"), status: "upcoming" },
+      { label: "National Service Day", description: "A day of hands-on community service across participating communities.", date: new Date("2027-01-23"), status: "upcoming" },
+      { label: "Citizens' Pledge & Showcase", description: "Closing symposium — learners present projects and take the Citizens' Pledge.", date: new Date("2027-02-27"), status: "upcoming" },
+    ],
   },
   {
     id: "clean-communities-initiative",
@@ -200,6 +229,13 @@ export const initiatives: Initiative[] = [
     startDate: new Date("2026-06-01"),
     endDate: null,
     createdAt: new Date("2026-07-01T10:00:01Z"),
+    milestones: [
+      { label: "Community clean-up launch", description: "First riverbank clean-up days across founding communities.", date: new Date("2026-06-01"), status: "complete" },
+      { label: "Waste segregation training rollout", description: "Basic waste segregation training delivered community by community.", date: new Date("2026-07-15"), status: "complete" },
+      { label: "Youth ambassador recruitment", description: "Youth environmental ambassadors recruited in each participating community.", date: new Date("2026-09-05"), status: "complete" },
+      { label: "Assembly waste-point partnership", description: "Formal waste collection points agreed with local assemblies.", date: new Date("2026-10-15"), status: "current" },
+      { label: "Riverbank restoration expansion", description: "Extend clean-up and restoration to two further riverside communities.", date: new Date("2027-01-01"), status: "upcoming" },
+    ],
   },
   {
     id: "youth-skills-livelihood-initiative",
@@ -225,6 +261,12 @@ export const initiatives: Initiative[] = [
     startDate: new Date("2026-11-01"),
     endDate: null,
     createdAt: new Date("2026-07-01T10:00:02Z"),
+    milestones: [
+      { label: "Programme design & partner sign-off", description: "Finalise the trade taster curriculum with Ghana Enterprise Agency and local employers.", date: new Date("2026-10-01"), status: "upcoming" },
+      { label: "Vocational taster sessions begin", description: "First round of short taster sessions across in-demand local trades.", date: new Date("2026-11-01"), status: "upcoming" },
+      { label: "Mentor pairing", description: "Each participant paired with a community mentor and savings group.", date: new Date("2026-12-01"), status: "upcoming" },
+      { label: "First placements tracked", description: "Track participants into further training or employment.", date: new Date("2027-02-01"), status: "upcoming" },
+    ],
   },
 ];
 
@@ -411,6 +453,10 @@ export const expenditures: Expenditure[] = [
 export const surveyReports: SurveyReport[] = [
   {
     id: "s1",
+    reporterName: null,
+    phone: null,
+    occupation: null,
+    email: null,
     community: "Agorkpo",
     town: "Agorkpo",
     latitude: null,
@@ -418,6 +464,7 @@ export const surveyReports: SurveyReport[] = [
     category: "INFRASTRUCTURE",
     title: "Broken bridge",
     description: "The community bridge is broken, cutting off safe access for residents and schoolchildren during the rainy season.",
+    suggestedSolution: "Temporary footbridge while a permanent repair is scoped and funded.",
     priority: "HIGH",
     urgency: "HIGH",
     status: "SUBMITTED",
@@ -426,6 +473,10 @@ export const surveyReports: SurveyReport[] = [
   },
   {
     id: "s2",
+    reporterName: null,
+    phone: null,
+    occupation: null,
+    email: null,
     community: "Dabala",
     town: "Dabala",
     latitude: null,
@@ -433,6 +484,7 @@ export const surveyReports: SurveyReport[] = [
     category: "SANITATION",
     title: "Poor sanitation",
     description: "Waste is accumulating faster than it can be cleared, creating health risks near the market area.",
+    suggestedSolution: "More frequent collection and an additional skip near the market.",
     priority: "HIGH",
     urgency: "HIGH",
     status: "IN_REVIEW",
@@ -441,6 +493,10 @@ export const surveyReports: SurveyReport[] = [
   },
   {
     id: "s3",
+    reporterName: null,
+    phone: null,
+    occupation: null,
+    email: null,
     community: "Sogakope",
     town: "Sogakope",
     latitude: null,
@@ -448,6 +504,7 @@ export const surveyReports: SurveyReport[] = [
     category: "EDUCATION",
     title: "School furniture shortage",
     description: "Several classrooms have far more learners than desks, forcing some children to sit on the floor.",
+    suggestedSolution: null,
     priority: "MEDIUM",
     urgency: "MEDIUM",
     status: "SUBMITTED",
@@ -470,6 +527,11 @@ export const successStories: SuccessStory[] = [
     story: "After the 'Our Community, Our Responsibility' event, a small group of learners organised their own weekend litter-picking round — unprompted. It's now a monthly fixture.",
     impactMetric: "30+ learners now volunteering monthly",
     initiativeId: "global-citizenship-civic-education-programme",
+    interview: {
+      kind: "video",
+      durationLabel: "3:42",
+      transcriptExcerpt: "We didn't wait to be told. We just picked a Saturday and started. Now other classes ask when it's their turn.",
+    },
   },
   {
     id: "clearer-water-safer-fishing",
@@ -479,6 +541,7 @@ export const successStories: SuccessStory[] = [
     story: "Three clean-up days later, households along the clean-up stretch report fewer snagged nets and a noticeably clearer bank at low tide.",
     impactMetric: "3 clean-up days, 1.2km of riverbank cleared",
     initiativeId: "clean-communities-initiative",
+    interview: null,
   },
 ];
 
@@ -506,4 +569,19 @@ export function getEventsForInitiative(initiativeId: string): Event[] {
 
 export function getBlogPostBySlug(slug: string): BlogPost | undefined {
   return blogPosts.find((p) => p.slug === slug);
+}
+
+export function getCurrentMilestone(initiative: Initiative): { milestone: Milestone; index: number } | null {
+  const index = initiative.milestones.findIndex((m) => m.status === "current");
+  if (index === -1) return null;
+  return { milestone: initiative.milestones[index], index };
+}
+
+export function getProgressLabel(initiative: Initiative): string | null {
+  const total = initiative.milestones.length;
+  if (total === 0) return null;
+  const current = getCurrentMilestone(initiative);
+  if (current) return `Phase ${current.index + 1} of ${total} — ${current.milestone.label}`;
+  if (initiative.milestones.every((m) => m.status === "complete")) return "All milestones complete";
+  return `Starting soon — ${initiative.milestones[0].label}`;
 }

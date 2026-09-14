@@ -30,7 +30,7 @@ export function StatsBand({
 export function FeaturedInitiatives({
   initiatives,
 }: {
-  initiatives: { id: string; slug: string; title: string; summary: string; category: string; status: string; budget: number; amountRaised: number }[];
+  initiatives: { id: string; slug: string; title: string; summary: string; category: string; status: string; budget: number; amountRaised: number; progressLabel: string | null }[];
 }) {
   return (
     <section className="section-y">
@@ -64,6 +64,11 @@ export function FeaturedInitiatives({
                       <div className="mt-1.5">
                         <ProgressBar value={percent(i.amountRaised, i.budget)} />
                       </div>
+                      {i.progressLabel && (
+                        <p className="mt-2 truncate font-mono text-xs text-ocean-600 dark:text-ocean-400">
+                          {i.progressLabel}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </Card>

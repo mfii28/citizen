@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, X, ChevronDown, Heart, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X, ChevronDown, Heart, Search, User, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSession, type LocalSession } from "@/lib/local-session";
 import { ThemeToggle } from "./theme-toggle";
 
 type NavItem = { label: string; href: string };
@@ -48,6 +49,11 @@ function isGroup(item: NavItem | NavGroup | undefined): item is NavGroup {
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [session, setSession] = useState<LocalSession | null>(null);
+
+  useEffect(() => {
+    setSession(getSession());
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-ocean-100 bg-white/90 backdrop-blur-md dark:border-ocean-900 dark:bg-ocean-950/90">
@@ -96,6 +102,21 @@ export function Navbar() {
           <Link href="/search" aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-full text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
             <Search className="h-4 w-4" />
           </Link>
+          {session ? (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
+            >
+              <User className="h-4 w-4" /> {session.name.split(" ")[0] || "Dashboard"}
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-ocean-700 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
+            >
+              <LogIn className="h-4 w-4" /> Sign in
+            </Link>
+          )}
           <ThemeToggle />
           <Link
             href="/donate"
@@ -157,15 +178,34 @@ export function Navbar() {
                 </Link>
               )
             )}
-            <div className="mt-2 flex items-center justify-between border-t border-ocean-100 pt-3 dark:border-ocean-900">
-              <ThemeToggle />
-              <Link
-                href="/donate"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-1.5 rounded-full bg-gold-500 px-4 py-2 text-sm font-semibold text-ocean-950"
-              >
-                <Heart className="h-4 w-4" /> Donate
-              </Link>
+            <div className="mt-2 border-t border-ocean-100 pt-3 dark:border-ocean-900">
+              {session ? (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
+                >
+                  <User className="h-4 w-4" /> {session.name || "Dashboard"}
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
+                >
+                  <LogIn className="h-4 w-4" /> Sign in
+                </Link>
+              )}
+              <div className="mt-2 flex items-center justify-between">
+                <ThemeToggle />
+                <Link
+                  href="/donate"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-1.5 rounded-full bg-gold-500 px-4 py-2 text-sm font-semibold text-ocean-950"
+                >
+                  <Heart className="h-4 w-4" /> Donate
+                </Link>
+              </div>
             </div>
           </div>
         </div>

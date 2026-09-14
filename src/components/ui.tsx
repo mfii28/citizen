@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -39,10 +39,21 @@ export function Button({
   return <button type={type} onClick={onClick} disabled={disabled} className={styles}>{children}</button>;
 }
 
-export function Card({ id, className, children }: { id?: string; className?: string; children: ReactNode }) {
+export function Card({
+  id,
+  className,
+  onClick,
+  children,
+}: {
+  id?: string;
+  className?: string;
+  onClick?: (e: MouseEvent<HTMLDivElement>) => void;
+  children: ReactNode;
+}) {
   return (
     <div
       id={id}
+      onClick={onClick}
       className={cn(
         "rounded-2xl border border-ocean-100 bg-white shadow-sm shadow-ocean-950/[0.03] dark:border-ocean-800 dark:bg-ocean-900",
         className
