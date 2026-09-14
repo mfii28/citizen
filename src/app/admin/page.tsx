@@ -43,19 +43,18 @@ export default function DedicatedAdminPage() {
 
   if (session === "checking" || session === null) {
     return (
-      <section className="section-y">
-        <div className="container-page">
-          <p className="text-sm text-ocean-600 dark:text-ocean-400">Loading Filament operations console…</p>
+      <div className="flex h-screen w-full items-center justify-center bg-white dark:bg-[#0c1322]">
+        <div className="flex items-center gap-3 text-sm text-ocean-600 dark:text-ocean-400">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+          <span>Loading Filament operations console…</span>
         </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="py-4 sm:py-6">
-      <div className="mx-auto max-w-[1600px] px-3 sm:px-6">
-        <AdminDashboard session={session} />
-      </div>
-    </section>
+    <div className="h-screen w-full overflow-hidden bg-white dark:bg-[#0c1322]">
+      <AdminDashboard session={session} />
+    </div>
   );
 }

@@ -31,6 +31,16 @@ export default function AdminLoginPage() {
   return (
     <section className="section-y">
       <div className="container-page max-w-md">
+        <div className="mb-6 flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-ocean-600 hover:text-ocean-950 dark:text-ocean-400 dark:hover:text-white"
+          >
+            &larr; The Citizen Project
+          </Link>
+          <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">Filament Operations</span>
+        </div>
+
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-300/30 text-gold-600 dark:text-gold-400 mb-4">
           <ShieldCheck className="h-7 w-7" />
         </div>

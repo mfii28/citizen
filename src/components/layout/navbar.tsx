@@ -60,6 +60,10 @@ export function Navbar() {
     setSession(getSession());
   }, [pathname]);
 
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   const portalHref = session
     ? session.role === "admin"
       ? "/admin"

@@ -468,13 +468,13 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   ];
 
   return (
-    <div className="flex min-h-[850px] w-full flex-col overflow-hidden rounded-2xl border border-ocean-200/80 bg-ocean-50/40 shadow-sm dark:border-ocean-800 dark:bg-ocean-950 lg:flex-row">
+    <div className="flex h-screen w-full overflow-hidden bg-ocean-50/30 dark:bg-[#080d16] lg:flex-row">
       {/* ------------------------------------------------------------- */}
       {/* 1. FILAMENT APP SIDEBAR (Desktop & Mobile Drawer) */}
       {/* ------------------------------------------------------------- */}
       <aside
         className={cn(
-          "flex flex-col border-r border-ocean-200/70 bg-white transition-all duration-200 dark:border-ocean-800/80 dark:bg-[#0c1322]",
+          "flex h-full flex-col border-r border-ocean-200/70 bg-white transition-all duration-200 dark:border-ocean-800/80 dark:bg-[#0c1322]",
           isSidebarCollapsed ? "lg:w-20" : "lg:w-64",
           "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:w-72",
           mobileSidebarOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
@@ -633,9 +633,9 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
       {/* ------------------------------------------------------------- */}
       {/* 2. FILAMENT MAIN CONTENT AREA */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-ocean-200/70 bg-white/95 px-4 backdrop-blur-sm sm:px-6 dark:border-ocean-800/80 dark:bg-ocean-950/95">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-ocean-200/70 bg-white/95 px-4 backdrop-blur-sm sm:px-6 dark:border-ocean-800/80 dark:bg-ocean-950/95">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -699,7 +699,7 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
         </header>
 
         {/* Filament Page Content Container */}
-        <main className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto space-y-6 p-4 sm:p-6 lg:p-8">
           {/* Toast Notification Banner */}
           {toastMessage && (
             <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-900 dark:text-amber-300 animate-in fade-in slide-in-from-top-2">

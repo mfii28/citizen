@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Facebook, Instagram, Linkedin, Youtube, MessageCircle, Twitter } from "lucide-react";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
 
@@ -28,6 +31,12 @@ const social = [
 ];
 
 export function Footer() {
+  const pathname = usePathname();
+
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   return (
     <footer className="border-t border-ocean-100 bg-ocean-950 text-ocean-100 dark:border-ocean-900">
       <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
