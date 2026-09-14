@@ -20,7 +20,13 @@ export default function LoginPage() {
     setPending(true);
     const demo = DEMO_ACCOUNTS[demoRole];
     setSession({ name: demo.name, email: demo.email, role: demo.role });
-    router.push("/dashboard");
+    if (demoRole === "admin") {
+      router.push("/admin/dashboard");
+    } else if (demoRole === "volunteer") {
+      router.push("/volunteer/dashboard");
+    } else {
+      router.push("/user/dashboard");
+    }
   };
 
   return (
@@ -45,7 +51,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ocean-950 dark:text-white">Citizen Supporter</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Simple giving &amp; favorites dashboard</p>
+                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/user/dashboard</code></p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-ocean-400" />
@@ -62,7 +68,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ocean-950 dark:text-white">Volunteer / Ambassador</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Log service hours &amp; tier badges</p>
+                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/volunteer/dashboard</code></p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-ocean-400" />
@@ -79,11 +85,39 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ocean-950 dark:text-white">District Coordinator (Admin)</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Sidebar navigation &amp; issue management</p>
+                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/admin/dashboard</code></p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 text-ocean-400" />
             </button>
+          </div>
+        </div>
+
+        {/* Direct Links to Separate Role Login Pages */}
+        <div className="mt-6 rounded-2xl border border-ocean-100 bg-ocean-50/50 p-4 text-xs dark:border-ocean-800 dark:bg-ocean-900/40">
+          <p className="font-semibold text-ocean-900 dark:text-white">Dedicated Role Login Pages:</p>
+          <div className="mt-2 space-y-1.5">
+            <Link
+              href="/user/login"
+              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-white dark:hover:bg-ocean-800 text-ocean-700 dark:text-ocean-300"
+            >
+              <span>Citizen Portal Sign In &rarr;</span>
+              <span className="font-mono text-[11px] text-ocean-500">/user/login</span>
+            </Link>
+            <Link
+              href="/volunteer/login"
+              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-white dark:hover:bg-ocean-800 text-ocean-700 dark:text-ocean-300"
+            >
+              <span>Volunteer &amp; Ambassador Sign In &rarr;</span>
+              <span className="font-mono text-[11px] text-ocean-500">/volunteer/login</span>
+            </Link>
+            <Link
+              href="/admin/login"
+              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-white dark:hover:bg-ocean-800 text-ocean-700 dark:text-ocean-300"
+            >
+              <span>District Operations Console Sign In &rarr;</span>
+              <span className="font-mono text-[11px] text-ocean-500">/admin/login</span>
+            </Link>
           </div>
         </div>
 

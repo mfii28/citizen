@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { User, HeartHandshake, ShieldCheck } from "lucide-react";
 import { type UserRole, switchRole } from "@/lib/local-session";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,21 @@ export function RoleSwitcher({ currentRole }: { currentRole: UserRole }) {
             </button>
           );
         })}
+      </div>
+
+      <div className="flex items-center gap-2 pr-2 text-xs">
+        <Link
+          href={
+            currentRole === "admin"
+              ? "/admin/dashboard"
+              : currentRole === "volunteer"
+              ? "/volunteer/dashboard"
+              : "/user/dashboard"
+          }
+          className="font-mono text-[11px] text-ocean-600 underline hover:text-ocean-900 dark:text-ocean-400 dark:hover:text-white"
+        >
+          Dedicated URL: {currentRole === "admin" ? "/admin/dashboard" : currentRole === "volunteer" ? "/volunteer/dashboard" : "/user/dashboard"} &rarr;
+        </Link>
       </div>
     </div>
   );

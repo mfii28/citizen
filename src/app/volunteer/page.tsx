@@ -24,11 +24,31 @@ export default function VolunteerPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-6 text-sm text-ocean-600 dark:text-ocean-400">
-            A full self-service volunteer portal (hour tracking, certificate downloads, initiative sign-up) is coming in
-            Phase 2. For now, register your interest and our team will follow up directly.
-          </p>
-          <Button href="/contact" size="lg" className="mt-6 w-full">Register your interest</Button>
+          <div className="mt-6 rounded-xl border border-leaf-500/30 bg-leaf-400/10 p-4">
+            <p className="text-xs font-semibold text-leaf-800 dark:text-leaf-300">
+              Already a South Tongu Volunteer or Ambassador?
+            </p>
+            <p className="mt-1 text-xs text-ocean-700 dark:text-ocean-300">
+              Access your self-service portal to log service hours, monitor leaderboard standing, and download your ambassador credentials.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2.5">
+              <Button href="/volunteer/dashboard" size="sm">
+                Open Volunteer Dashboard &rarr;
+              </Button>
+              <Button href="/volunteer/login" size="sm" variant="secondary">
+                Volunteer Sign In
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-ocean-100 pt-6 dark:border-ocean-800">
+            <p className="text-xs text-ocean-600 dark:text-ocean-400">
+              New to The Citizen Project? Register your interest below:
+            </p>
+            <Button href="/contact" size="md" variant="ghost" className="mt-2 w-full">
+              Register interest as a new volunteer
+            </Button>
+          </div>
         </Card>
       </div>
     </section>
