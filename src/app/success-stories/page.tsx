@@ -27,12 +27,12 @@ export default function SuccessStoriesPage() {
               <div className="p-5">
                 {s.impactMetric && <Badge tone="leaf">{s.impactMetric}</Badge>}
                 <h3 className="mt-2 font-display font-semibold text-ocean-950 dark:text-white">{s.title}</h3>
-                {s.beneficiaryName && <p className="mt-1 text-xs text-ocean-500">{s.beneficiaryName}</p>}
+                {s.beneficiaryName && <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">{s.beneficiaryName}</p>}
                 <p className="mt-2 text-sm text-ocean-600 dark:text-ocean-300">{s.story}</p>
               </div>
             </Card>
           ))}
-          {stories.length === 0 && <p className="text-ocean-500">Stories are on the way — check back soon.</p>}
+          {stories.length === 0 && <p className="text-ocean-600 dark:text-ocean-400">Stories are on the way — check back soon.</p>}
         </div>
       </div>
     </section>

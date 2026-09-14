@@ -66,7 +66,7 @@ export default function InitiativeDetailPage({ params }: { params: { slug: strin
                       <CalendarRange className="h-5 w-5 shrink-0 text-ocean-500" />
                       <div>
                         <p className="font-medium text-ocean-950 dark:text-white">{e.title}</p>
-                        <p className="text-sm text-ocean-500 dark:text-ocean-400">{formatDate(e.startDate)}</p>
+                        <p className="text-sm text-ocean-600 dark:text-ocean-400">{formatDate(e.startDate)}</p>
                       </div>
                     </Card>
                   ))}
@@ -77,12 +77,12 @@ export default function InitiativeDetailPage({ params }: { params: { slug: strin
 
           <div className="space-y-5">
             <Card className="p-6">
-              <div className="flex justify-between text-sm font-mono text-ocean-500 dark:text-ocean-400">
+              <div className="flex justify-between text-sm font-mono text-ocean-600 dark:text-ocean-400">
                 <span>{formatGHS(raised)} raised</span>
                 <span>{percent(raised, budget)}%</span>
               </div>
               <div className="mt-2"><ProgressBar value={percent(raised, budget)} /></div>
-              <p className="mt-1 text-xs text-ocean-500 dark:text-ocean-400">Target: {formatGHS(budget)}</p>
+              <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">Target: {formatGHS(budget)}</p>
 
               <div className="mt-5 flex flex-col gap-2">
                 <Button href={`/donate?initiative=${initiative.id}`} className="w-full">Donate to this initiative</Button>

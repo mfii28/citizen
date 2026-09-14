@@ -39,11 +39,11 @@ export default function ReportsPage() {
                   <Download className="h-3.5 w-3.5" /> Download
                 </a>
               ) : (
-                <span className="text-xs text-ocean-400">Upload pending</span>
+                <span className="text-xs text-ocean-600 dark:text-ocean-400">Upload pending</span>
               )}
             </Card>
           ))}
-          {sorted.length === 0 && <p className="text-ocean-500">No reports published yet.</p>}
+          {sorted.length === 0 && <p className="text-ocean-600 dark:text-ocean-400">No reports published yet.</p>}
         </div>
       </div>
     </section>

@@ -24,7 +24,7 @@ export default function VolunteerPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-6 text-sm text-ocean-500 dark:text-ocean-400">
+          <p className="mt-6 text-sm text-ocean-600 dark:text-ocean-400">
             A full self-service volunteer portal (hour tracking, certificate downloads, initiative sign-up) is coming in
             Phase 2. For now, register your interest and our team will follow up directly.
           </p>

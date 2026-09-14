@@ -41,16 +41,16 @@ export default function AmbassadorsPage() {
           {leaderboard.map((row, idx) => (
             <Card key={row.id} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <span className="w-6 font-mono text-sm text-ocean-400">#{idx + 1}</span>
+                <span className="w-6 font-mono text-sm text-ocean-600 dark:text-ocean-400">#{idx + 1}</span>
                 <span className="font-medium text-ocean-900 dark:text-white">{row.name}</span>
               </div>
               <div className="flex items-center gap-2">
                 {badgesFor(row.hours).map((b) => <Badge key={b} tone="gold">{b}</Badge>)}
-                <span className="font-mono text-sm text-ocean-500">{row.hours}h</span>
+                <span className="font-mono text-sm text-ocean-600 dark:text-ocean-400">{row.hours}h</span>
               </div>
             </Card>
           ))}
-          {leaderboard.length === 0 && <p className="text-sm text-ocean-500">No approved volunteer hours logged yet.</p>}
+          {leaderboard.length === 0 && <p className="text-sm text-ocean-600 dark:text-ocean-400">No approved volunteer hours logged yet.</p>}
         </div>
 
         <Button href="/contact" size="lg" className="mt-6 w-full">Register your interest as an ambassador</Button>

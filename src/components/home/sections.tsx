@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, MapPin, CalendarDays } from "lucide-react";
-import { Card, Badge, ProgressBar, SectionHeading, StatCounter, Reveal } from "@/components/ui";
+import { ArrowRight, MapPin, CalendarDays, Heart } from "lucide-react";
+import { Card, Badge, ProgressBar, SectionHeading, StatCounter, Reveal, Button } from "@/components/ui";
 import { formatDate, formatGHS, percent } from "@/lib/utils";
 import { labelize as labelizeCategory } from "@/types";
 
@@ -46,7 +46,7 @@ export function FeaturedInitiatives({
           {initiatives.map((i, idx) => (
             <Reveal key={i.id} delay={idx * 0.05}>
               <Link href={`/initiatives/${i.slug}`}>
-                <Card className="group h-full overflow-hidden transition hover:-translate-y-1 hover:shadow-lg">
+                <Card className="group h-full overflow-hidden transition hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(8,29,38,0.10)]">
                   <div className="flex h-36 items-center justify-center bg-gradient-to-br from-ocean-600 to-ocean-900 font-mono text-xs text-ocean-200">
                     {i.category}
                   </div>
@@ -57,7 +57,7 @@ export function FeaturedInitiatives({
                     </h3>
                     <p className="mt-2 line-clamp-2 text-sm text-ocean-600 dark:text-ocean-300">{i.summary}</p>
                     <div className="mt-4">
-                      <div className="flex justify-between text-xs font-mono text-ocean-500 dark:text-ocean-400">
+                      <div className="flex justify-between text-xs font-mono text-ocean-600 dark:text-ocean-400">
                         <span>{formatGHS(i.amountRaised)} raised</span>
                         <span>{percent(i.amountRaised, i.budget)}%</span>
                       </div>
@@ -95,7 +95,7 @@ export function UpcomingEvents({
           {events.map((e, idx) => (
             <Reveal key={e.id} delay={idx * 0.05}>
               <Link href={`/events#${e.slug}`}>
-                <Card className="flex flex-col gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center">
+                <Card className="flex flex-col gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(8,29,38,0.10)] sm:flex-row sm:items-center">
                   <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-ocean-700 font-mono text-white">
                     <span className="text-lg font-semibold leading-none">{e.startDate.getDate()}</span>
                     <span className="text-[10px] uppercase">{e.startDate.toLocaleString("en-GH", { month: "short" })}</span>
@@ -104,7 +104,7 @@ export function UpcomingEvents({
                     <h3 className="font-display text-base font-semibold text-ocean-950 dark:text-white">{e.title}</h3>
                     <p className="mt-1 line-clamp-1 text-sm text-ocean-600 dark:text-ocean-300">{e.summary}</p>
                   </div>
-                  <div className="flex shrink-0 flex-col gap-1 text-xs text-ocean-500 dark:text-ocean-400 sm:text-right">
+                  <div className="flex shrink-0 flex-col gap-1 text-xs text-ocean-600 dark:text-ocean-400 sm:text-right">
                     <span className="flex items-center gap-1 sm:justify-end"><CalendarDays className="h-3.5 w-3.5" /> {formatDate(e.startDate)}</span>
                     {e.location && <span className="flex items-center gap-1 sm:justify-end"><MapPin className="h-3.5 w-3.5" /> {e.location}</span>}
                   </div>
@@ -134,11 +134,11 @@ export function TestimonialsSection({
                 <p className="text-ocean-700 dark:text-ocean-200">&ldquo;{t.content}&rdquo;</p>
                 <div className="mt-5 flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ocean-100 font-mono text-xs font-semibold text-ocean-700 dark:bg-ocean-800 dark:text-ocean-200">
-                    {t.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                    {t.name.split(" ").map((n) => n[0]?.toUpperCase()).slice(0, 2).join("")}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-ocean-950 dark:text-white">{t.name}</p>
-                    {t.role && <p className="text-xs text-ocean-500 dark:text-ocean-400">{t.role}</p>}
+                    {t.role && <p className="text-xs text-ocean-600 dark:text-ocean-400">{t.role}</p>}
                   </div>
                 </div>
               </Card>
@@ -155,15 +155,38 @@ export function PartnersStrip({ partners }: { partners: { id: string; name: stri
   return (
     <section className="border-y border-ocean-100 bg-white py-10 dark:border-ocean-900 dark:bg-ocean-950">
       <div className="container-page">
-        <p className="text-center font-mono text-xs uppercase tracking-[0.2em] text-ocean-400">
+        <p className="text-center font-mono text-xs uppercase tracking-[0.2em] text-ocean-600 dark:text-ocean-400">
           In partnership with
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
           {partners.map((p) => (
-            <span key={p.id} className="font-display text-sm font-medium text-ocean-500 dark:text-ocean-400">
+            <span key={p.id} className="font-display text-sm font-medium text-ocean-600 dark:text-ocean-400">
               {p.organisation ?? p.name}
             </span>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function ClosingCta() {
+  return (
+    <section className="bg-ocean-950 py-16 text-center text-white">
+      <div className="container-page">
+        <p className="font-mono text-xs font-medium uppercase tracking-[0.2em] text-ocean-300">
+          Every donation is tracked on our transparency dashboard
+        </p>
+        <h2 className="mx-auto mt-3 max-w-xl text-balance font-display text-2xl font-semibold sm:text-3xl">
+          Ready to put your support where South Tongu can see it?
+        </h2>
+        <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          <Button href="/donate" size="lg">
+            <Heart className="h-4 w-4" /> Donate now
+          </Button>
+          <Button href="/volunteer" size="lg" variant="outline">
+            Become a volunteer
+          </Button>
         </div>
       </div>
     </section>

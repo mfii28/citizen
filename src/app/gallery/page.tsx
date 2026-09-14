@@ -26,7 +26,7 @@ export default function GalleryPage() {
             </div>
           ))}
           {images.length === 0 && (
-            <p className="col-span-full text-ocean-500">
+            <p className="col-span-full text-ocean-600 dark:text-ocean-400">
               No photos yet — this section is ready for real images once you add them.
             </p>
           )}

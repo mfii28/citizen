@@ -53,7 +53,7 @@ export function SurveyForm() {
       <div>
         <p className="mb-2 text-sm font-medium text-ocean-800 dark:text-ocean-200">Photo / video (optional)</p>
         <input type="file" accept="image/*,video/*" className={cn(inputClass, "cursor-not-allowed opacity-60")} disabled />
-        <p className="mt-1 text-xs text-ocean-500 dark:text-ocean-400">
+        <p className="mt-1 text-xs text-ocean-600 dark:text-ocean-400">
           Media uploads aren&apos;t available on this demo site.
         </p>
       </div>

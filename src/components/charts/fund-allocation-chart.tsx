@@ -6,7 +6,7 @@ const COLORS = ["#1E8AA8", "#E8A233", "#3D9A6C", "#7FC8DA"];
 
 export function FundAllocationChart({ data }: { data: { name: string; value: number }[] }) {
   if (data.every((d) => d.value === 0)) {
-    return <p className="flex h-64 items-center justify-center text-sm text-ocean-500">No expenditure recorded yet.</p>;
+    return <p className="flex h-64 items-center justify-center text-sm text-ocean-600 dark:text-ocean-400">No expenditure recorded yet.</p>;
   }
   return (
     <ResponsiveContainer width="100%" height={280}>

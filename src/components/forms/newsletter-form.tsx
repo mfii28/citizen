@@ -22,8 +22,8 @@ export function NewsletterForm({ dark = true }: { dark?: boolean }) {
         className={cn(
           "w-full min-w-0 rounded-lg border px-3 py-2 text-sm focus:border-gold-500",
           dark
-            ? "border-ocean-800 bg-ocean-900 text-white placeholder:text-ocean-500"
-            : "border-ocean-200 bg-white text-ocean-900 placeholder:text-ocean-400"
+            ? "border-ocean-800 bg-ocean-900 text-white placeholder:text-ocean-300"
+            : "border-ocean-200 bg-white text-ocean-900 placeholder:text-ocean-600"
         )}
       />
       <button className="shrink-0 rounded-lg bg-gold-500 px-3 py-2 text-sm font-semibold text-ocean-950 hover:bg-gold-400">

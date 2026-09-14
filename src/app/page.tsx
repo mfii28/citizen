@@ -5,6 +5,7 @@ import {
   UpcomingEvents,
   TestimonialsSection,
   PartnersStrip,
+  ClosingCta,
 } from "@/components/home/sections";
 import { initiatives, events, testimonials, partners, donations } from "@/lib/mock-data";
 
@@ -66,6 +67,7 @@ export default function HomePage() {
       {events.length > 0 && <UpcomingEvents events={events} />}
       {testimonials.length > 0 && <TestimonialsSection testimonials={testimonials} />}
       <PartnersStrip partners={partners} />
+      <ClosingCta />
     </>
   );
 }

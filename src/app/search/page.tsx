@@ -35,7 +35,7 @@ export default function SearchPage({ searchParams }: { searchParams: { q?: strin
         </form>
 
         {q && (
-          <p className="mt-6 text-sm text-ocean-500 dark:text-ocean-400">
+          <p className="mt-6 text-sm text-ocean-600 dark:text-ocean-400">
             {totalResults} result{totalResults === 1 ? "" : "s"} for &ldquo;{q}&rdquo;
           </p>
         )}
@@ -43,11 +43,11 @@ export default function SearchPage({ searchParams }: { searchParams: { q?: strin
         <div className="mt-6 space-y-8">
           {matchedInitiatives.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Initiatives</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-600 dark:text-ocean-400">Initiatives</h2>
               <div className="mt-2 space-y-2">
                 {matchedInitiatives.map((i) => (
                   <Link key={i.id} href={`/initiatives/${i.slug}`}>
-                    <Card className="p-4 hover:shadow-md"><p className="font-medium text-ocean-900 dark:text-white">{i.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{i.summary}</p></Card>
+                    <Card className="p-4 hover:shadow-[0_12px_24px_rgba(8,29,38,0.10)]"><p className="font-medium text-ocean-900 dark:text-white">{i.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{i.summary}</p></Card>
                   </Link>
                 ))}
               </div>
@@ -55,11 +55,11 @@ export default function SearchPage({ searchParams }: { searchParams: { q?: strin
           )}
           {matchedEvents.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Events</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-600 dark:text-ocean-400">Events</h2>
               <div className="mt-2 space-y-2">
                 {matchedEvents.map((e) => (
                   <Link key={e.id} href={`/events#${e.slug}`}>
-                    <Card className="p-4 hover:shadow-md"><p className="font-medium text-ocean-900 dark:text-white">{e.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{e.summary}</p></Card>
+                    <Card className="p-4 hover:shadow-[0_12px_24px_rgba(8,29,38,0.10)]"><p className="font-medium text-ocean-900 dark:text-white">{e.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{e.summary}</p></Card>
                   </Link>
                 ))}
               </div>
@@ -67,11 +67,11 @@ export default function SearchPage({ searchParams }: { searchParams: { q?: strin
           )}
           {matchedPosts.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Blog</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-600 dark:text-ocean-400">Blog</h2>
               <div className="mt-2 space-y-2">
                 {matchedPosts.map((p) => (
                   <Link key={p.id} href={`/blog/${p.slug}`}>
-                    <Card className="p-4 hover:shadow-md"><p className="font-medium text-ocean-900 dark:text-white">{p.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{p.excerpt}</p></Card>
+                    <Card className="p-4 hover:shadow-[0_12px_24px_rgba(8,29,38,0.10)]"><p className="font-medium text-ocean-900 dark:text-white">{p.title}</p><p className="text-sm text-ocean-600 dark:text-ocean-300">{p.excerpt}</p></Card>
                   </Link>
                 ))}
               </div>
@@ -79,7 +79,7 @@ export default function SearchPage({ searchParams }: { searchParams: { q?: strin
           )}
           {matchedPartners.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-500">Partners</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-ocean-600 dark:text-ocean-400">Partners</h2>
               <div className="mt-2 space-y-2">
                 {matchedPartners.map((p) => (
                   <Card key={p.id} className="p-4"><p className="font-medium text-ocean-900 dark:text-white">{p.organisation ?? p.name}</p><Badge>{p.category}</Badge></Card>
@@ -87,7 +87,7 @@ export default function SearchPage({ searchParams }: { searchParams: { q?: strin
               </div>
             </div>
           )}
-          {q && totalResults === 0 && <p className="text-ocean-500">No results yet — try a different term.</p>}
+          {q && totalResults === 0 && <p className="text-ocean-600 dark:text-ocean-400">No results yet — try a different term.</p>}
         </div>
       </div>
     </section>

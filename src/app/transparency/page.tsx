@@ -52,7 +52,7 @@ export default function TransparencyPage() {
           {kpis.map((k) => (
             <Card key={k.label} className="p-5">
               <p className="font-mono text-2xl font-semibold text-ocean-950 dark:text-white">{k.value}</p>
-              <p className="mt-1 text-sm text-ocean-500 dark:text-ocean-400">{k.label}</p>
+              <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">{k.label}</p>
             </Card>
           ))}
         </div>
@@ -74,13 +74,13 @@ export default function TransparencyPage() {
             {recentDonors.map((d) => (
               <Card key={d.id} className="flex items-center justify-between p-4 text-sm">
                 <span className="text-ocean-800 dark:text-ocean-200">{d.anonymous ? "Anonymous supporter" : d.donorName || "Supporter"}</span>
-                <span className="font-mono text-ocean-500 dark:text-ocean-400">{formatGHS(d.amount)}</span>
+                <span className="font-mono text-ocean-600 dark:text-ocean-400">{formatGHS(d.amount)}</span>
               </Card>
             ))}
           </div>
         </div>
 
-        <p className="mt-10 text-xs text-ocean-500 dark:text-ocean-400">
+        <p className="mt-10 text-xs text-ocean-600 dark:text-ocean-400">
           This dashboard runs entirely on static demo data — there is no live database behind it.
         </p>
       </div>

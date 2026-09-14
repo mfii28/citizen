@@ -19,7 +19,7 @@ export function ShareRow({ title }: { title: string }) {
 
   return (
     <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ocean-500 dark:text-ocean-400">Share</p>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ocean-600 dark:text-ocean-400">Share</p>
       <div className="flex flex-wrap gap-2">
         {links.map((l) => (
           <a

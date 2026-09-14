@@ -13,7 +13,7 @@ const CommunityMap = nextDynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[520px] items-center justify-center rounded-2xl bg-ocean-50 text-sm text-ocean-500 dark:bg-ocean-900">
+      <div className="flex h-[520px] items-center justify-center rounded-2xl bg-ocean-50 text-sm text-ocean-600 dark:bg-ocean-900 dark:text-ocean-400">
         Loading map…
       </div>
     ),
@@ -70,7 +70,7 @@ export default function CommunityMapPage() {
         </div>
 
         {unplaced.length > 0 && (
-          <p className="mt-4 text-xs text-ocean-500 dark:text-ocean-400">
+          <p className="mt-4 text-xs text-ocean-600 dark:text-ocean-400">
             {unplaced.length} report{unplaced.length > 1 ? "s" : ""} from a community we don&apos;t have coordinates for
             yet aren&apos;t shown — add the community to <code>src/lib/communities.ts</code>.
           </p>

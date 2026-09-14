@@ -95,13 +95,13 @@ export function DonationForm({ initiativeId }: { initiativeId?: string }) {
             </button>
           ))}
         </div>
-        <p className="mt-1.5 text-xs text-ocean-500 dark:text-ocean-400">
+        <p className="mt-1.5 text-xs text-ocean-600 dark:text-ocean-400">
           This is a demo site — no payment provider is connected, so nothing is actually charged.
         </p>
       </div>
 
       {initiativeId && (
-        <p className="text-xs text-ocean-500 dark:text-ocean-400">Donating to initiative: {initiativeId}</p>
+        <p className="text-xs text-ocean-600 dark:text-ocean-400">Donating to initiative: {initiativeId}</p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">

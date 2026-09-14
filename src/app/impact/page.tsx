@@ -40,7 +40,7 @@ export default function ImpactPage() {
           {kpis.map((k) => (
             <Card key={k.label} className="p-5">
               <p className="font-mono text-3xl font-semibold text-ocean-950 dark:text-white">{k.value}</p>
-              <p className="mt-1 text-sm text-ocean-500 dark:text-ocean-400">{k.label}</p>
+              <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-400">{k.label}</p>
             </Card>
           ))}
         </div>

@@ -41,8 +41,8 @@ const NAV: (NavItem | NavGroup)[] = [
   { label: "Contact", href: "/contact" },
 ];
 
-function isGroup(item: NavItem | NavGroup): item is NavGroup {
-  return "items" in item;
+function isGroup(item: NavItem | NavGroup | undefined): item is NavGroup {
+  return !!item && "items" in item;
 }
 
 export function Navbar() {
@@ -52,8 +52,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-ocean-100 bg-white/90 backdrop-blur-md dark:border-ocean-900 dark:bg-ocean-950/90">
       <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2 font-display text-lg font-semibold text-ocean-900 dark:text-ocean-50">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ocean-700 text-sm text-white">TC</span>
+        <Link href="/" className="flex shrink-0 items-center gap-2 whitespace-nowrap font-display text-lg font-semibold text-ocean-900 dark:text-ocean-50">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ocean-700 text-sm text-white">TC</span>
           The Citizen Project
         </Link>
 
@@ -61,9 +61,9 @@ export function Navbar() {
           {NAV.map((item) =>
             isGroup(item) ? (
               <div key={item.label} className="group relative">
-                <button className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
+                <button className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900">
                   {item.label}
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                 </button>
                 <div className="invisible absolute left-0 top-full z-10 w-64 translate-y-1 rounded-xl border border-ocean-100 bg-white p-2 opacity-0 shadow-xl shadow-ocean-950/5 transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 dark:border-ocean-800 dark:bg-ocean-900">
                   {item.items.map((sub) => (
@@ -82,7 +82,7 @@ export function Navbar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900",
+                  "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900",
                   pathname === item.href && "bg-ocean-50 text-ocean-900 dark:bg-ocean-900 dark:text-white"
                 )}
               >
@@ -105,29 +105,58 @@ export function Navbar() {
           </Link>
         </div>
 
-        <button
-          className="rounded-md p-2 text-ocean-800 dark:text-ocean-100 lg:hidden"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="flex items-center gap-2 lg:hidden">
+          <Link
+            href="/donate"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-gold-500 px-3.5 text-xs font-semibold text-ocean-950 shadow-sm transition hover:bg-gold-400"
+          >
+            <Heart className="h-3.5 w-3.5" /> Donate
+          </Link>
+          <button
+            className="rounded-md p-2 text-ocean-800 dark:text-ocean-100"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {open && (
         <div className="border-t border-ocean-100 bg-white px-5 py-4 dark:border-ocean-900 dark:bg-ocean-950 lg:hidden">
           <div className="flex flex-col gap-1">
-            {NAV.flatMap((item) => (isGroup(item) ? item.items : [item])).map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV.map((item) =>
+              isGroup(item) ? (
+                <div key={item.label} className="pt-3 first:pt-0">
+                  <p className="px-3 pb-1 font-mono text-xs font-medium uppercase tracking-[0.2em] text-ocean-600 dark:text-ocean-400">
+                    {item.label}
+                  </p>
+                  {item.items.map((sub) => (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={() => setOpen(false)}
+                      className="block rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900"
+                    >
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "rounded-md px-3 py-2.5 text-sm font-medium text-ocean-800 hover:bg-ocean-50 dark:text-ocean-200 dark:hover:bg-ocean-900",
+                    isGroup(NAV[NAV.indexOf(item) - 1]) && "mt-2 border-t border-ocean-100 pt-3 dark:border-ocean-900"
+                  )}
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
             <div className="mt-2 flex items-center justify-between border-t border-ocean-100 pt-3 dark:border-ocean-900">
               <ThemeToggle />
               <Link

@@ -28,7 +28,7 @@ export default function PartnersPage() {
               <p className="mt-1 text-sm text-ocean-600 dark:text-ocean-300">{p.purpose}</p>
             </Card>
           ))}
-          {approved.length === 0 && <p className="text-ocean-500">Be our first listed partner.</p>}
+          {approved.length === 0 && <p className="text-ocean-600 dark:text-ocean-400">Be our first listed partner.</p>}
         </div>
 
         <div className="mt-14 max-w-2xl">

@@ -39,10 +39,10 @@ export default function DonatePage({ searchParams }: { searchParams: { initiativ
                 <span className="text-sm font-medium text-ocean-800 dark:text-ocean-200">
                   {d.anonymous ? "Anonymous supporter" : d.donorName || "A generous donor"}
                 </span>
-                <span className="font-mono text-sm text-ocean-500 dark:text-ocean-400">{formatGHS(d.amount)}</span>
+                <span className="font-mono text-sm text-ocean-600 dark:text-ocean-400">{formatGHS(d.amount)}</span>
               </Card>
             ))}
-            {recentDonors.length === 0 && <p className="text-sm text-ocean-500">Be the first to donate.</p>}
+            {recentDonors.length === 0 && <p className="text-sm text-ocean-600 dark:text-ocean-400">Be the first to donate.</p>}
           </div>
         </div>
       </div>
