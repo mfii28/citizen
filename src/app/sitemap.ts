@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/site-url";
 
 const routes = [
   "", "about", "vision", "mission", "initiatives", "events", "donate",
@@ -6,6 +7,6 @@ const routes = [
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://thecitizenproject.org";
+  const base = getSiteUrl();
   return routes.map((r) => ({ url: `${base}/${r}`, lastModified: new Date() }));
 }
