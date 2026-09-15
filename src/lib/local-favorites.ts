@@ -42,3 +42,6 @@ export function toggleFavorite(slug: string): boolean {
     return false;
   }
 }
+
+export const toggleFavoriteSlug = toggleFavorite;
+

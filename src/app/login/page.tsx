@@ -1,183 +1,299 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LogIn, User, HeartHandshake, ShieldCheck, ArrowRight } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  LogIn,
+  Heart,
+  Award,
+  ArrowRight,
+  ShieldCheck,
+  UserCheck,
+  CheckCircle2,
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { setSession, nameFromEmail, DEMO_ACCOUNTS, type UserRole } from "@/lib/local-session";
-import { SectionHeading, Card, Button, Badge } from "@/components/ui";
 
-const inputClass =
-  "w-full rounded-lg border border-ocean-200 px-3 py-2.5 text-sm focus:border-ocean-500 dark:border-ocean-700 dark:bg-ocean-900";
-
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<UserRole>("user");
-  const [pending, setPending] = useState(false);
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role");
+  const redirectParam = searchParams.get("redirect");
 
-  const handleQuickLogin = (demoRole: UserRole) => {
-    setPending(true);
-    const demo = DEMO_ACCOUNTS[demoRole];
-    setSession({ name: demo.name, email: demo.email, role: demo.role });
-    if (demoRole === "admin") {
-      router.push("/admin");
-    } else if (demoRole === "volunteer") {
-      router.push("/volunteer");
-    } else {
-      router.push("/user");
+  const [activeRole, setActiveRole] = useState<"user" | "volunteer">("user");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (roleParam === "volunteer") {
+      setActiveRole("volunteer");
+    } else if (roleParam === "user") {
+      setActiveRole("user");
     }
+  }, [roleParam]);
+
+  const handleQuickLogin = (role: "user" | "volunteer") => {
+    setPending(true);
+    setError(null);
+    const demo = DEMO_ACCOUNTS[role];
+    setSession({ name: demo.name, email: demo.email, role: demo.role });
+    const target = redirectParam || (role === "volunteer" ? "/volunteer" : "/user");
+    setTimeout(() => {
+      router.push(target);
+    }, 300);
+  };
+
+  const handleFormLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setPending(true);
+    setError(null);
+    setSession({ name: nameFromEmail(email), email: email.trim(), role: activeRole });
+    const target = redirectParam || (activeRole === "volunteer" ? "/volunteer" : "/user");
+    setTimeout(() => {
+      router.push(target);
+    }, 300);
   };
 
   return (
-    <section className="section-y">
-      <div className="container-page max-w-md">
-        <SectionHeading eyebrow="Welcome back" title="Sign in" align="center" />
-
-        {/* 1-Click Quick Demo Sign-in */}
-        <div className="mt-8 space-y-2.5">
-          <p className="font-mono text-xs uppercase tracking-wider text-ocean-600 dark:text-ocean-400">
-            Preview Demo Persona (1-Click)
-          </p>
-          <div className="grid gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("user")}
-              className="flex items-center justify-between rounded-xl border border-ocean-200 bg-white p-3 text-left transition hover:border-ocean-500 hover:bg-ocean-50/50 dark:border-ocean-800 dark:bg-ocean-900 dark:hover:bg-ocean-800/60"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ocean-100 text-ocean-700 dark:bg-ocean-800 dark:text-ocean-300">
-                  <User className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-ocean-950 dark:text-white">Citizen Supporter</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/user</code></p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-ocean-400" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("volunteer")}
-              className="flex items-center justify-between rounded-xl border border-ocean-200 bg-white p-3 text-left transition hover:border-ocean-500 hover:bg-ocean-50/50 dark:border-ocean-800 dark:bg-ocean-900 dark:hover:bg-ocean-800/60"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-leaf-400/15 text-leaf-600 dark:text-leaf-400">
-                  <HeartHandshake className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-ocean-950 dark:text-white">Volunteer / Ambassador</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/volunteer</code></p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-ocean-400" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("admin")}
-              className="flex items-center justify-between rounded-xl border border-ocean-200 bg-white p-3 text-left transition hover:border-ocean-500 hover:bg-ocean-50/50 dark:border-ocean-800 dark:bg-ocean-900 dark:hover:bg-ocean-800/60"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gold-300/30 text-gold-600 dark:text-gold-400">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-ocean-950 dark:text-white">District Coordinator (Admin)</p>
-                  <p className="text-xs text-ocean-600 dark:text-ocean-400">Routes to <code className="text-ocean-900 dark:text-white">/admin</code></p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-ocean-400" />
-            </button>
-          </div>
+    <div className="w-full max-w-md">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-leaf-600 text-white shadow-lg shadow-emerald-500/10 mb-4">
+          <Users className="h-7 w-7" />
         </div>
+        <span className="font-mono text-xs uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-bold">
+          South Tongu Community Network
+        </span>
+        <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-ocean-950 dark:text-white sm:text-3xl">
+          Welcome to The Citizen Project
+        </h1>
+        <p className="mt-1.5 text-xs text-ocean-600 dark:text-ocean-400">
+          Single sign-in portal for Citizen Supporters and District Volunteers.
+        </p>
+      </div>
 
-        {/* Direct Links to Separate Role Login Pages */}
-        <div className="mt-6 rounded-2xl border border-ocean-100 bg-ocean-50/50 p-4 text-xs dark:border-ocean-800 dark:bg-ocean-900/40">
-          <p className="font-semibold text-ocean-900 dark:text-white">Dedicated Role Login Pages:</p>
-          <div className="mt-2 space-y-1.5">
-            <Link
-              href="/user/login"
-              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-white dark:hover:bg-ocean-800 text-ocean-700 dark:text-ocean-300"
-            >
-              <span>Citizen Portal Sign In &rarr;</span>
-              <span className="font-mono text-[11px] text-ocean-500">/user/login</span>
-            </Link>
-            <Link
-              href="/volunteer/login"
-              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-white dark:hover:bg-ocean-800 text-ocean-700 dark:text-ocean-300"
-            >
-              <span>Volunteer &amp; Ambassador Sign In &rarr;</span>
-              <span className="font-mono text-[11px] text-ocean-500">/volunteer/login</span>
-            </Link>
-            <Link
-              href="/admin/login"
-              className="flex items-center justify-between rounded-lg p-2 transition hover:bg-white dark:hover:bg-ocean-800 text-ocean-700 dark:text-ocean-300"
-            >
-              <span>District Operations Console Sign In &rarr;</span>
-              <span className="font-mono text-[11px] text-ocean-500">/admin/login</span>
-            </Link>
-          </div>
-        </div>
-
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-ocean-100 dark:bg-ocean-800" />
-          <span className="font-mono text-xs uppercase tracking-wider text-ocean-400">Or sign in with email</span>
-          <div className="h-px flex-1 bg-ocean-100 dark:bg-ocean-800" />
-        </div>
-
-        <Card className="p-6 sm:p-8">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setPending(true);
-              setSession({ name: nameFromEmail(email), email, role });
-              const target = role === "admin" ? "/admin" : role === "volunteer" ? "/volunteer" : "/user";
-              router.push(target);
+      {/* Segmented Persona / Role Switcher */}
+      <div className="mb-6 rounded-2xl border border-ocean-200 bg-white p-1.5 shadow-sm dark:border-ocean-800 dark:bg-ocean-900">
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveRole("user");
+              setError(null);
             }}
-            className="space-y-4"
+            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold transition ${
+              activeRole === "user"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-ocean-600 hover:text-ocean-950 dark:text-ocean-400 dark:hover:text-white"
+            }`}
           >
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ocean-800 dark:text-ocean-200">Email</label>
+            <Heart className="h-4 w-4" />
+            <span>Citizen Supporter</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveRole("volunteer");
+              setError(null);
+            }}
+            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-bold transition ${
+              activeRole === "volunteer"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-ocean-600 hover:text-ocean-950 dark:text-ocean-400 dark:hover:text-white"
+            }`}
+          >
+            <Award className="h-4 w-4" />
+            <span>Volunteer &amp; Ambassador</span>
+          </button>
+        </div>
+
+        {/* Dynamic Persona Description */}
+        <div className="mt-2.5 px-2.5 pb-1 text-[11px] text-ocean-500 leading-relaxed text-center">
+          {activeRole === "user" ? (
+            <span>
+              Access your submitted civic reports, Paystack giving records, and vote on district budget priorities.
+            </span>
+          ) : (
+            <span>
+              Log voluntary service hours, RSVP to field deployments, manage shifts, and download official transcripts.
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 1-Click Fast-Track Demo Access */}
+      <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/30">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-semibold text-emerald-900 dark:text-emerald-300">
+            {activeRole === "user" ? "Citizen Demo Account" : "Volunteer Demo Account"}
+          </span>
+          <span className="rounded bg-emerald-200/80 px-1.5 py-0.2 font-mono text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300">
+            1-Click
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-400/90">
+          {activeRole === "user"
+            ? "Evaluate the resident dashboard as Kofi Mensah (Citizen)."
+            : "Evaluate field shifts, service hours, and certificates as Akua Agbavitor (Volunteer)."}
+        </p>
+        <button
+          type="button"
+          onClick={() => handleQuickLogin(activeRole)}
+          disabled={pending}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-500 active:scale-[0.99] transition disabled:opacity-50"
+        >
+          <UserCheck className="h-4 w-4" />
+          <span>
+            {pending
+              ? "Authorizing…"
+              : activeRole === "user"
+              ? "1-Click Sign in as Kofi Mensah (Citizen)"
+              : "1-Click Sign in as Akua Agbavitor (Volunteer)"}
+          </span>
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-ocean-200 dark:bg-ocean-800" />
+        <span className="font-mono text-[11px] uppercase tracking-wider text-ocean-400">
+          Or sign in with email
+        </span>
+        <div className="h-px flex-1 bg-ocean-200 dark:bg-ocean-800" />
+      </div>
+
+      {/* Login Credentials Form Card */}
+      <div className="rounded-3xl border border-ocean-200 bg-white p-6 sm:p-8 shadow-xl dark:border-ocean-800 dark:bg-ocean-900">
+        {error && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleFormLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-ocean-800 dark:text-ocean-200 mb-1.5">
+              Email Address
+            </label>
+            <div className="relative">
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className={inputClass}
+                placeholder={activeRole === "user" ? "kofi@citizen.gh" : "akua.volunteer@citizen.gh"}
+                className="w-full rounded-xl border border-ocean-200 bg-ocean-50/40 px-3.5 py-2.5 text-xs text-ocean-950 placeholder:text-ocean-400 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 outline-none transition dark:border-ocean-700 dark:bg-ocean-800 dark:text-white"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ocean-800 dark:text-ocean-200">Password</label>
-              <input type="password" required placeholder="••••••••" className={inputClass} />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-ocean-800 dark:text-ocean-200">
+                Password
+              </label>
+              <span className="text-[11px] text-ocean-500 hover:underline cursor-pointer">
+                Forgot password?
+              </span>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-ocean-800 dark:text-ocean-200">Account Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                className={inputClass}
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-xl border border-ocean-200 bg-ocean-50/40 px-3.5 py-2.5 text-xs text-ocean-950 placeholder:text-ocean-400 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 outline-none transition dark:border-ocean-700 dark:bg-ocean-800 dark:text-white pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-ocean-400 hover:text-ocean-700 dark:hover:text-white"
               >
-                <option value="user">Citizen Supporter (Simple)</option>
-                <option value="volunteer">Volunteer / Ambassador (Moderate)</option>
-                <option value="admin">District Coordinator (Extensive Admin)</option>
-              </select>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
+          </div>
 
-            <Button type="submit" size="lg" className="w-full" disabled={pending}>
-              <LogIn className="h-4 w-4" /> {pending ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
-        </Card>
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={pending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-md hover:bg-emerald-500 active:scale-[0.99] transition disabled:opacity-50"
+            >
+              <LogIn className="h-4 w-4" />
+              <span>
+                {pending
+                  ? "Signing in…"
+                  : activeRole === "user"
+                  ? "Sign In to Citizen Portal"
+                  : "Sign In to Volunteer Portal"}
+              </span>
+            </button>
+          </div>
+        </form>
 
-        <p className="mt-6 text-center text-sm text-ocean-600 dark:text-ocean-400">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="font-semibold text-ocean-700 underline dark:text-ocean-300">
-            Sign up
+        {/* Signup Link */}
+        <div className="mt-6 pt-4 border-t border-ocean-100 text-center text-xs text-ocean-600 dark:border-ocean-800 dark:text-ocean-400">
+          <span>Don&apos;t have an account yet? </span>
+          <Link
+            href={`/register?role=${activeRole}`}
+            className="font-semibold text-emerald-600 hover:text-emerald-700 underline underline-offset-4 dark:text-emerald-400"
+          >
+            Create {activeRole === "user" ? "Citizen" : "Volunteer"} Account &rarr;
           </Link>
-        </p>
+        </div>
+      </div>
+
+      {/* Administrative Terminal Footnote */}
+      <div className="mt-8 text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-ocean-200 bg-white/80 px-4 py-1.5 text-xs text-ocean-600 shadow-sm backdrop-blur-sm dark:border-ocean-800 dark:bg-ocean-900/80 dark:text-ocean-400">
+          <ShieldCheck className="h-4 w-4 text-gold-500" />
+          <span>District Coordinator or Staff?</span>
+          <Link
+            href="/admin/login"
+            className="font-semibold text-ocean-900 hover:text-gold-600 underline dark:text-white dark:hover:text-gold-400"
+          >
+            Access Operations Terminal &rarr;
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <section className="section-y min-h-[calc(100vh-4rem)] flex items-center justify-center py-12">
+      <div className="container-page flex justify-center">
+        <Suspense
+          fallback={
+            <div className="flex h-64 items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+            </div>
+          }
+        >
+          <LoginForm />
+        </Suspense>
       </div>
     </section>
   );

@@ -1,6 +1,55 @@
+# Dependencies
 node_modules
-.next
+/.pnp
+.pnp.js
+
+# Testing & Scratch
+scratch/
+scratch/*
+test-results/
+playwright-report/
+blob-report/
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Environment variables
 .env
-.env.local
+.env*.local
+.env.production
+.env.development
+
+# Logs
 *.log
-dist
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Markdown files (all docs, specs, and agent notes)
+*.md
+**/*.md
+
+# Agent & AI tool directories and artifacts
+.agent/
+agent/
+*.agent
+agent*
+.gemini/
+.antigravity/
+.system_generated/
+brain/
+.brain/
+.impeccable/
+
+# IDE & Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

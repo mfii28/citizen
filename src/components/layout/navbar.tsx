@@ -60,7 +60,13 @@ export function Navbar() {
     setSession(getSession());
   }, [pathname]);
 
-  if (pathname?.startsWith("/admin")) {
+  if (
+    pathname?.startsWith("/admin") ||
+    pathname === "/user" ||
+    pathname?.startsWith("/user/dashboard") ||
+    pathname === "/volunteer" ||
+    pathname?.startsWith("/volunteer/dashboard")
+  ) {
     return null;
   }
 

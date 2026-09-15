@@ -45,8 +45,14 @@ import {
   FileText,
   PlusCircle,
   Paperclip,
+  Pencil,
+  Trash2,
+  ArrowRight,
+  LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { LocalSession } from "@/lib/local-session";
+import { clearSession } from "@/lib/local-session";
 import {
   initiatives,
   donations,
@@ -55,8 +61,17 @@ import {
   type SurveyReport,
   type SurveyStatus,
   type Initiative,
+  type UrgencyLevel,
 } from "@/lib/mock-data";
-import { getLocalReports, type LocalSurveyReport } from "@/lib/local-reports";
+import {
+  getLocalReports,
+  addLocalReport,
+  updateLocalReport,
+  deleteLocalReport,
+  generateLocalReportId,
+  REPORTS_CHANGED_EVENT,
+  type LocalSurveyReport,
+} from "@/lib/local-reports";
 import { Card, Badge, Button, ProgressBar } from "@/components/ui";
 import { formatGHS, formatDate, percent } from "@/lib/utils";
 import { labelize } from "@/types";
@@ -80,8 +95,14 @@ import { CommunityMapExplorer } from "@/components/community-map-explorer";
 import {
   getManualDonations,
   saveManualDonation,
+  deleteManualDonation,
   getManualExpenditures,
   saveManualExpenditure,
+  deleteManualExpenditure,
+  getAdminInitiatives,
+  saveAdminInitiative,
+  updateAdminInitiative,
+  deleteAdminInitiative,
   addAuditEntry,
   type ManualDonationEntry,
   type ManualExpenditureEntry,
@@ -105,6 +126,40 @@ export type AdminTab =
 const VOLUNTEER_STORAGE_KEY = "tcp:volunteer-hours";
 const ISSUES_STORAGE_KEY = "tcp:admin-issue-statuses";
 const MILESTONES_STORAGE_KEY = "tcp:admin-initiative-milestones";
+const DELETED_ISSUES_KEY = "tcp:admin-deleted-issues";
+const ISSUE_EDITS_KEY = "tcp:admin-issue-edits";
+
+const INITIAL_VOLUNTEER_ENTRIES: VolunteerHourEntry[] = [
+  {
+    id: "vol-01",
+    volunteerName: "Akua Agbavitor",
+    hours: 8,
+    date: "2026-09-08",
+    description: "Sogakope Community Health Outreach and Screening Support",
+    initiativeTitle: "Global Citizenship Programme",
+    approved: true,
+    approvedBy: "Selorm Dzreke",
+    approvedAt: "2026-09-09T10:00:00Z",
+  },
+  {
+    id: "vol-02",
+    volunteerName: "Kwame Asare",
+    hours: 12,
+    date: "2026-09-10",
+    description: "Dabala Clean Water Piping Installation and Trenching",
+    initiativeTitle: "Clean Communities Initiative",
+    approved: false,
+  },
+  {
+    id: "vol-03",
+    volunteerName: "Esi Boateng",
+    hours: 6,
+    date: "2026-09-11",
+    description: "Youth Literacy & Basic Computing Workshop Tutoring",
+    initiativeTitle: "Youth Literacy & Basic Computing",
+    approved: false,
+  },
+];
 
 function downloadCsv(filename: string, rows: (string | number)[][]) {
   const csvContent = rows
@@ -128,6 +183,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 export function AdminDashboard({ session }: { session: LocalSession }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -136,16 +192,63 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Issues state with local status overrides
+  // Issues state with local status overrides, custom edits, and deleted IDs
   const [statusOverrides, setStatusOverrides] = useState<Record<string, SurveyStatus>>({});
   const [issueFilterTab, setIssueFilterTab] = useState<string>("ALL");
+  const [deletedIssueIds, setDeletedIssueIds] = useState<string[]>([]);
+  const [issueCustomEdits, setIssueCustomEdits] = useState<Record<string, Partial<SurveyReport>>>({});
   const [selectedIssue, setSelectedIssue] = useState<
     ((SurveyReport | LocalSurveyReport) & { status: SurveyStatus }) | null
   >(null);
 
+  // Local issues reports state
+  const [localReports, setLocalReports] = useState<LocalSurveyReport[]>([]);
+
+  // Modals for Issues CRUD
+  const [newIssueModalOpen, setNewIssueModalOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState<((SurveyReport | LocalSurveyReport) & { status: SurveyStatus }) | null>(null);
+  const [deletingIssueId, setDeletingIssueId] = useState<string | null>(null);
+
+  // New Issue form state
+  const [issueTitle, setIssueTitle] = useState("");
+  const [issueCategory, setIssueCategory] = useState("roads");
+  const [issueUrgency, setIssueUrgency] = useState<UrgencyLevel>("HIGH");
+  const [issueCommunity, setIssueCommunity] = useState("Sogakope");
+  const [issueTown, setIssueTown] = useState("Central Sogakope");
+  const [issueDesc, setIssueDesc] = useState("");
+  const [issueName, setIssueName] = useState("");
+  const [issuePhone, setIssuePhone] = useState("+233 ");
+
+  // Edit Issue form state
+  const [editIssueTitle, setEditIssueTitle] = useState("");
+  const [editIssueCategory, setEditIssueCategory] = useState("");
+  const [editIssueUrgency, setEditIssueUrgency] = useState<UrgencyLevel>("MEDIUM");
+  const [editIssueCommunity, setEditIssueCommunity] = useState("");
+  const [editIssueTown, setEditIssueTown] = useState("");
+  const [editIssueDesc, setEditIssueDesc] = useState("");
+  const [editIssueStatus, setEditIssueStatus] = useState<SurveyStatus>("SUBMITTED");
+
   // Volunteer hours state
-  const [volunteerEntries, setVolunteerEntries] = useState<VolunteerHourEntry[]>([]);
+  const [volunteerEntries, setVolunteerEntries] = useState<VolunteerHourEntry[]>(INITIAL_VOLUNTEER_ENTRIES);
   const [volunteerFilterTab, setVolunteerFilterTab] = useState<string>("ALL");
+  const [newVolunteerModalOpen, setNewVolunteerModalOpen] = useState(false);
+  const [editingVolunteer, setEditingVolunteer] = useState<VolunteerHourEntry | null>(null);
+  const [deletingVolunteerId, setDeletingVolunteerId] = useState<string | null>(null);
+
+  // New Volunteer form state
+  const [volName, setVolName] = useState("");
+  const [volHours, setVolHours] = useState(4);
+  const [volDesc, setVolDesc] = useState("");
+  const [volDate, setVolDate] = useState(new Date().toISOString().slice(0, 10));
+  const [volSupervisor, setVolSupervisor] = useState("Community Outreach & Education");
+
+  // Edit Volunteer form state
+  const [editVolName, setEditVolName] = useState("");
+  const [editVolHours, setEditVolHours] = useState(0);
+  const [editVolDesc, setEditVolDesc] = useState("");
+  const [editVolDate, setEditVolDate] = useState("");
+  const [editVolSupervisor, setEditVolSupervisor] = useState("");
+  const [editVolApproved, setEditVolApproved] = useState(false);
 
   // Milestones state
   const [milestonesState, setMilestonesState] = useState<Record<string, boolean>>({});
@@ -160,14 +263,10 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   });
 
   // Initiatives state
-  const [initiativesList, setInitiativesList] = useState<Initiative[]>(initiatives);
+  const [initiativesList, setInitiativesList] = useState<Initiative[]>(() => getAdminInitiatives());
   const [newInitiativeModalOpen, setNewInitiativeModalOpen] = useState(false);
-
-  // Manual finances state
-  const [manualDonations, setManualDonations] = useState<ManualDonationEntry[]>(() => getManualDonations());
-  const [manualExpenditures, setManualExpenditures] = useState<ManualExpenditureEntry[]>(() => getManualExpenditures());
-  const [newDonationModalOpen, setNewDonationModalOpen] = useState(false);
-  const [newExpenditureModalOpen, setNewExpenditureModalOpen] = useState(false);
+  const [editingInitiative, setEditingInitiative] = useState<Initiative | null>(null);
+  const [deletingInitiativeId, setDeletingInitiativeId] = useState<string | null>(null);
 
   // Form states for New Initiative
   const [initTitle, setInitTitle] = useState("");
@@ -175,6 +274,21 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   const [initBudget, setInitBudget] = useState(25000);
   const [initLocation, setInitLocation] = useState("Sogakope Central");
   const [initSummary, setInitSummary] = useState("");
+
+  // Form states for Edit Initiative
+  const [editInitTitle, setEditInitTitle] = useState("");
+  const [editInitCategory, setEditInitCategory] = useState("");
+  const [editInitBudget, setEditInitBudget] = useState(0);
+  const [editInitLocation, setEditInitLocation] = useState("");
+  const [editInitSummary, setEditInitSummary] = useState("");
+  const [editInitStatus, setEditInitStatus] = useState<"UPCOMING" | "ACTIVE" | "COMPLETED">("ACTIVE");
+
+  // Manual finances state
+  const [manualDonations, setManualDonations] = useState<ManualDonationEntry[]>(() => getManualDonations());
+  const [manualExpenditures, setManualExpenditures] = useState<ManualExpenditureEntry[]>(() => getManualExpenditures());
+  const [newDonationModalOpen, setNewDonationModalOpen] = useState(false);
+  const [newExpenditureModalOpen, setNewExpenditureModalOpen] = useState(false);
+  const [deletingFinance, setDeletingFinance] = useState<{ id: string; type: "DONATION" | "EXPENDITURE"; entity: string; amount: number } | null>(null);
 
   // Form states for Offline Donation
   const [donDonor, setDonDonor] = useState("");
@@ -205,16 +319,44 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
   useEffect(() => {
     try {
       const rawHours = window.localStorage.getItem(VOLUNTEER_STORAGE_KEY);
-      if (rawHours) setVolunteerEntries(JSON.parse(rawHours));
+      if (rawHours) {
+        setVolunteerEntries(JSON.parse(rawHours));
+      } else {
+        window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(INITIAL_VOLUNTEER_ENTRIES));
+      }
 
       const rawOverrides = window.localStorage.getItem(ISSUES_STORAGE_KEY);
       if (rawOverrides) setStatusOverrides(JSON.parse(rawOverrides));
 
       const rawMilestones = window.localStorage.getItem(MILESTONES_STORAGE_KEY);
       if (rawMilestones) setMilestonesState(JSON.parse(rawMilestones));
+
+      const rawDeletedIssues = window.localStorage.getItem(DELETED_ISSUES_KEY);
+      if (rawDeletedIssues) setDeletedIssueIds(JSON.parse(rawDeletedIssues));
+
+      const rawIssueEdits = window.localStorage.getItem(ISSUE_EDITS_KEY);
+      if (rawIssueEdits) setIssueCustomEdits(JSON.parse(rawIssueEdits));
+
+      setLocalReports(getLocalReports());
     } catch {
       // LocalStorage fallback
     }
+
+    const handleSyncReports = () => setLocalReports(getLocalReports());
+    const handleSyncVolunteerHours = () => {
+      try {
+        const raw = window.localStorage.getItem(VOLUNTEER_STORAGE_KEY);
+        if (raw) setVolunteerEntries(JSON.parse(raw));
+      } catch {}
+    };
+
+    window.addEventListener(REPORTS_CHANGED_EVENT, handleSyncReports);
+    window.addEventListener("tcp:volunteer-hours-changed", handleSyncVolunteerHours);
+
+    return () => {
+      window.removeEventListener(REPORTS_CHANGED_EVENT, handleSyncReports);
+      window.removeEventListener("tcp:volunteer-hours-changed", handleSyncVolunteerHours);
+    };
   }, []);
 
   const handleUpdateStatus = (issueId: string, newStatus: SurveyStatus) => {
@@ -222,11 +364,242 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
     setStatusOverrides(next);
     try {
       window.localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent("tcp:admin-issue-statuses-changed", { detail: next }));
     } catch {}
     if (selectedIssue && selectedIssue.id === issueId) {
       setSelectedIssue({ ...selectedIssue, status: newStatus });
     }
-    showToast(`Issue ${issueId} updated to ${newStatus}`);
+    showToast(`Issue #${issueId.replace("survey-", "").slice(0, 8)} updated to ${newStatus}`);
+  };
+
+  // Issue CRUD handlers
+  const handleCreateIssueSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!issueTitle.trim() || !issueDesc.trim()) return;
+
+    const newReport = addLocalReport({
+      id: generateLocalReportId(),
+      title: issueTitle,
+      category: issueCategory,
+      urgency: issueUrgency,
+      priority: issueUrgency === "CRITICAL" ? "HIGH" : issueUrgency === "HIGH" ? "HIGH" : "MEDIUM",
+      community: issueCommunity,
+      town: issueTown,
+      description: issueDesc,
+      reporterName: issueName.trim() || null,
+      phone: issuePhone.trim() || null,
+      occupation: null,
+      email: null,
+      latitude: 5.998,
+      longitude: 0.589,
+      suggestedSolution: null,
+      anonymous: !issueName.trim(),
+      status: "SUBMITTED",
+      createdAt: new Date(),
+    });
+
+    addAuditEntry({
+      actor: session.name,
+      action: "ISSUE_REPORTED",
+      entityType: "ISSUE",
+      entityId: newReport.id,
+      details: `Filed community issue: "${newReport.title}" in ${newReport.community} (${newReport.urgency})`,
+    });
+
+    setNewIssueModalOpen(false);
+    setLocalReports(getLocalReports());
+    setIssueTitle("");
+    setIssueDesc("");
+    setIssueName("");
+    setIssuePhone("+233 ");
+    showToast(`Successfully filed issue: "${newReport.title}"`);
+  };
+
+  const handleOpenEditIssue = (issue: (SurveyReport | LocalSurveyReport) & { status: SurveyStatus }) => {
+    setEditingIssue(issue);
+    setEditIssueTitle(issue.title);
+    setEditIssueCategory(issue.category);
+    setEditIssueUrgency(issue.urgency);
+    setEditIssueCommunity(issue.community);
+    setEditIssueTown(issue.town);
+    setEditIssueDesc(issue.description);
+    setEditIssueStatus(issue.status);
+  };
+
+  const handleSaveEditIssue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingIssue) return;
+
+    const updates = {
+      title: editIssueTitle,
+      category: editIssueCategory,
+      urgency: editIssueUrgency,
+      community: editIssueCommunity,
+      town: editIssueTown,
+      description: editIssueDesc,
+      status: editIssueStatus,
+    };
+
+    // If local report, update in local reports store
+    if ("source" in editingIssue && editingIssue.source === "local") {
+      updateLocalReport(editingIssue.id, updates);
+      setLocalReports(getLocalReports());
+    }
+
+    // Persist custom edit for any report
+    const nextEdits = { ...issueCustomEdits, [editingIssue.id]: updates };
+    setIssueCustomEdits(nextEdits);
+    try {
+      window.localStorage.setItem(ISSUE_EDITS_KEY, JSON.stringify(nextEdits));
+    } catch {}
+
+    // Status override update
+    const nextStatus = { ...statusOverrides, [editingIssue.id]: editIssueStatus };
+    setStatusOverrides(nextStatus);
+    try {
+      window.localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(nextStatus));
+    } catch {}
+
+    if (selectedIssue && selectedIssue.id === editingIssue.id) {
+      setSelectedIssue({ ...selectedIssue, ...updates });
+    }
+
+    addAuditEntry({
+      actor: session.name,
+      action: "ISSUE_UPDATED",
+      entityType: "ISSUE",
+      entityId: editingIssue.id,
+      details: `Updated details for issue: "${editIssueTitle}"`,
+    });
+
+    setEditingIssue(null);
+    showToast(`Updated issue details for "${editIssueTitle}"`);
+  };
+
+  const handleDeleteIssue = (id: string) => {
+    deleteLocalReport(id);
+    setLocalReports(getLocalReports());
+    const next = [...deletedIssueIds, id];
+    setDeletedIssueIds(next);
+    try {
+      window.localStorage.setItem(DELETED_ISSUES_KEY, JSON.stringify(next));
+    } catch {}
+
+    if (selectedIssue && selectedIssue.id === id) {
+      setSelectedIssue(null);
+    }
+    setDeletingIssueId(null);
+
+    addAuditEntry({
+      actor: session.name,
+      action: "ISSUE_DISMISSED",
+      entityType: "ISSUE",
+      entityId: id,
+      details: `Dismissed/deleted issue #${id.replace("survey-", "").slice(0, 8)}`,
+    });
+
+    showToast("Community issue dismissed and removed");
+  };
+
+  // Volunteer CRUD handlers
+  const handleCreateVolunteerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!volName.trim() || !volDesc.trim()) return;
+
+    const newEntry: VolunteerHourEntry = {
+      id: `vol-${Date.now()}`,
+      volunteerName: volName.trim(),
+      hours: Number(volHours),
+      date: volDate,
+      description: volDesc.trim(),
+      initiativeTitle: volSupervisor,
+      approved: false,
+    };
+
+    const next = [newEntry, ...volunteerEntries];
+    setVolunteerEntries(next);
+    try {
+      window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent("tcp:volunteer-hours-changed", { detail: next }));
+    } catch {}
+
+    addAuditEntry({
+      actor: session.name,
+      action: "HOURS_LOGGED",
+      entityType: "VOLUNTEER",
+      entityId: newEntry.id,
+      details: `Logged ${newEntry.hours} field hours for ${newEntry.volunteerName}`,
+    });
+
+    setNewVolunteerModalOpen(false);
+    setVolName("");
+    setVolDesc("");
+    showToast(`Logged ${newEntry.hours}h for ${newEntry.volunteerName}`);
+  };
+
+  const handleOpenEditVolunteer = (vol: VolunteerHourEntry) => {
+    setEditingVolunteer(vol);
+    setEditVolName(vol.volunteerName || "Akua Agbavitor");
+    setEditVolHours(vol.hours);
+    setEditVolDesc(vol.description);
+    setEditVolDate(vol.date);
+    setEditVolSupervisor(vol.initiativeTitle || "Community Outreach");
+    setEditVolApproved(vol.approved);
+  };
+
+  const handleSaveEditVolunteer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVolunteer) return;
+
+    const updated = volunteerEntries.map((v) =>
+      v.id === editingVolunteer.id
+        ? {
+            ...v,
+            volunteerName: editVolName,
+            hours: Number(editVolHours),
+            description: editVolDesc,
+            date: editVolDate,
+            initiativeTitle: editVolSupervisor,
+            approved: editVolApproved,
+          }
+        : v
+    );
+
+    setVolunteerEntries(updated);
+    try {
+      window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("tcp:volunteer-hours-changed", { detail: updated }));
+    } catch {}
+
+    addAuditEntry({
+      actor: session.name,
+      action: "HOURS_UPDATED",
+      entityType: "VOLUNTEER",
+      entityId: editingVolunteer.id,
+      details: `Updated field hours entry for ${editVolName} (${editVolHours} hrs)`,
+    });
+
+    setEditingVolunteer(null);
+    showToast(`Updated hours entry for ${editVolName}`);
+  };
+
+  const handleDeleteVolunteer = (id: string) => {
+    const updated = volunteerEntries.filter((v) => v.id !== id);
+    setVolunteerEntries(updated);
+    try {
+      window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("tcp:volunteer-hours-changed", { detail: updated }));
+    } catch {}
+
+    setDeletingVolunteerId(null);
+    addAuditEntry({
+      actor: session.name,
+      action: "HOURS_VOIDED",
+      entityType: "VOLUNTEER",
+      entityId: id,
+      details: `Voided volunteer hours entry #${id}`,
+    });
+    showToast("Volunteer hours record removed");
   };
 
   const handleToggleVolunteerApproval = (entry: VolunteerHourEntry) => {
@@ -243,9 +616,65 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
     setVolunteerEntries(updated);
     try {
       window.localStorage.setItem(VOLUNTEER_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent("tcp:volunteer-hours-changed", { detail: updated }));
     } catch {}
     const volName = entry.volunteerName || "Akua Agbavitor";
     showToast(!entry.approved ? `Approved ${entry.hours}h for ${volName}` : `Reverted approval for ${volName}`);
+  };
+
+  // Initiative CRUD handlers
+  const handleOpenEditInitiative = (init: Initiative) => {
+    setEditingInitiative(init);
+    setEditInitTitle(init.title);
+    setEditInitCategory(init.category);
+    setEditInitBudget(init.budget);
+    setEditInitLocation(init.location || "Sogakope Central");
+    setEditInitSummary(init.description || init.summary);
+    setEditInitStatus(init.status);
+  };
+
+  const handleSaveEditInitiative = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInitiative) return;
+
+    const next = updateAdminInitiative(
+      editingInitiative.id,
+      {
+        title: editInitTitle,
+        category: editInitCategory,
+        budget: Number(editInitBudget),
+        location: editInitLocation,
+        description: editInitSummary,
+        summary: editInitSummary,
+        status: editInitStatus,
+      },
+      session.name
+    );
+
+    setInitiativesList(next);
+    setEditingInitiative(null);
+    showToast(`Updated initiative: "${editInitTitle}"`);
+  };
+
+  const handleDeleteInitiative = (id: string) => {
+    const next = deleteAdminInitiative(id, session.name);
+    setInitiativesList(next);
+    setDeletingInitiativeId(null);
+    showToast("Initiative deleted and archived");
+  };
+
+  // Finance Delete handler
+  const handleConfirmDeleteFinance = () => {
+    if (!deletingFinance) return;
+    if (deletingFinance.id.startsWith("offline-")) {
+      const next = deleteManualDonation(deletingFinance.id, session.name);
+      setManualDonations(next);
+    } else if (deletingFinance.id.startsWith("exp-")) {
+      const next = deleteManualExpenditure(deletingFinance.id, session.name);
+      setManualExpenditures(next);
+    }
+    showToast(`Voided transaction record for ${deletingFinance.entity}`);
+    setDeletingFinance(null);
   };
 
   const handleToggleMilestone = (key: string, current: boolean) => {
@@ -257,16 +686,20 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
     showToast(`Milestone marked as ${!current ? "Delivered" : "In Progress"}`);
   };
 
-  // Combined reports
+  // Combined reports (respects deleted issues and custom edits)
   const allReports = useMemo(() => {
-    const local = getLocalReports();
+    const local = localReports;
     const seeded = surveyReports;
-    const combined = [...local, ...seeded];
-    return combined.map((r) => ({
-      ...r,
-      status: statusOverrides[r.id] ?? r.status,
-    }));
-  }, [statusOverrides]);
+    const combined = [...local, ...seeded].filter((r) => !deletedIssueIds.includes(r.id));
+    return combined.map((r) => {
+      const custom = issueCustomEdits[r.id] || {};
+      return {
+        ...r,
+        ...custom,
+        status: statusOverrides[r.id] ?? (custom.status as SurveyStatus) ?? r.status,
+      };
+    });
+  }, [localReports, statusOverrides, deletedIssueIds, issueCustomEdits]);
 
   // Key metrics
   const totalRaised = donations.filter((d) => d.status === "SUCCESS").reduce((s, d) => s + d.amount, 0);
@@ -480,6 +913,22 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
             <Eye className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Inspect</span>
           </button>
+          <button
+            type="button"
+            onClick={() => handleOpenEditIssue(row)}
+            title="Edit Issue Details"
+            className="rounded-md border border-ocean-200 bg-white p-1 text-ocean-600 hover:border-amber-500 hover:text-amber-600 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-300"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeletingIssueId(row.id)}
+            title="Dismiss / Delete Issue"
+            className="rounded-md border border-rose-500/20 bg-rose-500/10 p-1 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       ),
     },
@@ -594,6 +1043,31 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
           {row.amount > 0 ? `+${formatGHS(row.amount)}` : `-${formatGHS(Math.abs(row.amount))}`}
         </span>
       ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "text-right",
+      render: (row) => {
+        const isDeletable = row.id.startsWith("offline-") || row.id.startsWith("exp-");
+        if (!isDeletable) {
+          return (
+            <span className="text-[10px] font-mono text-ocean-400 dark:text-ocean-600">
+              Gateway
+            </span>
+          );
+        }
+        return (
+          <button
+            type="button"
+            onClick={() => setDeletingFinance(row)}
+            title="Void / Delete Record"
+            className="rounded-md border border-rose-500/20 bg-rose-500/10 p-1 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        );
+      },
     },
   ];
 
@@ -749,6 +1223,30 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
               </div>
             )}
           </div>
+
+          {/* Navigation Links: Return to site & Sign Out */}
+          <div className="mt-2 space-y-1">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-medium text-ocean-600 hover:bg-ocean-100 hover:text-ocean-900 dark:text-ocean-400 dark:hover:bg-ocean-800 dark:hover:text-ocean-200"
+              title="Return to Public Website"
+            >
+              <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+              {!isSidebarCollapsed && <span>Return to Website</span>}
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                clearSession();
+                router.push("/admin/login");
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+              title="Sign Out of Operations Console"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              {!isSidebarCollapsed && <span>Sign Out</span>}
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -879,12 +1377,51 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setNewIssueModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
+                  >
+                    <Plus className="h-4 w-4" /> File Civic Report
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       if (allReports[0]) setSelectedIssue(allReports[0]);
                     }}
-                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
+                    className="flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-800 hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
                   >
-                    <Plus className="h-4 w-4" /> Triage First Issue
+                    <Eye className="h-3.5 w-3.5" /> Triage First Issue
+                  </button>
+                </>
+              )}
+
+              {activeTab === "volunteers" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const headers = ["ID", "Volunteer Name", "Hours", "Date", "Activity Description", "Initiative", "Approved"];
+                      const rows = volunteerEntries.map((v) => [
+                        v.id,
+                        v.volunteerName || "Akua Agbavitor",
+                        v.hours,
+                        v.date,
+                        v.description,
+                        v.initiativeTitle || "Community Outreach",
+                        v.approved ? "YES" : "NO",
+                      ]);
+                      downloadCsv("south_tongu_volunteer_ledger.csv", [headers, ...rows]);
+                      showToast("Exported volunteer hours ledger CSV");
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-2 text-xs font-semibold text-ocean-800 hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewVolunteerModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-ocean-950 hover:bg-amber-400 shadow-xs"
+                  >
+                    <Plus className="h-4 w-4" /> Log Volunteer Hours
                   </button>
                 </>
               )}
@@ -1093,22 +1630,40 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
                         <FilamentBadge color={v.approved ? "success" : "warning"}>
-                          {v.approved ? "Verified & Certified" : "Pending Verification"}
+                          {v.approved ? "Verified" : "Pending"}
                         </FilamentBadge>
 
                         <button
                           type="button"
                           onClick={() => handleToggleVolunteerApproval(v)}
                           className={cn(
-                            "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                            "rounded-lg px-2.5 py-1 text-xs font-semibold transition",
                             v.approved
                               ? "border border-ocean-200 text-ocean-600 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
                               : "bg-amber-500 text-ocean-950 hover:bg-amber-400"
                           )}
                         >
-                          {v.approved ? "Revert Approval" : "Verify Hours"}
+                          {v.approved ? "Revert" : "Verify"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditVolunteer(v)}
+                          title="Edit Volunteer Record"
+                          className="rounded-lg border border-ocean-200 bg-white p-1 text-ocean-600 hover:border-amber-500 hover:text-amber-600 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-300"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingVolunteerId(v.id)}
+                          title="Delete / Void Entry"
+                          className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-1 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
@@ -1147,8 +1702,7 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                     </p>
 
                     <div className="mt-4 border-t border-ocean-100 pt-3 dark:border-ocean-800">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-ocean-500">Milestone Delivery Status:</span>
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                         <button
                           type="button"
                           onClick={() => handleToggleMilestone(`milestone-${init.id}`, isMilestoneDelivered)}
@@ -1162,6 +1716,25 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                           <Check className="h-3.5 w-3.5" />
                           <span>{isMilestoneDelivered ? "Marked Delivered" : "Mark as Delivered"}</span>
                         </button>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            title="Edit Initiative"
+                            onClick={() => handleOpenEditInitiative(init)}
+                            className="flex items-center gap-1 rounded-md border border-ocean-200 bg-white px-2 py-1 text-xs font-semibold text-ocean-700 hover:border-amber-500 hover:text-amber-600 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-300"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            title="Delete Initiative"
+                            onClick={() => setDeletingInitiativeId(init.id)}
+                            className="rounded-md border border-rose-500/20 bg-rose-500/10 p-1 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1370,17 +1943,36 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
             </div>
 
             {/* Modal Footer */}
-            <div className="mt-6 flex items-center justify-between border-t border-ocean-100 pt-4 dark:border-ocean-800">
-              <span className="text-xs text-ocean-500 font-mono">
-                Coordinator: {session.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelectedIssue(null)}
-                className="rounded-lg bg-ocean-900 px-4 py-2 text-xs font-semibold text-white hover:bg-ocean-800 dark:bg-white dark:text-ocean-950"
-              >
-                Close Drawer
-              </button>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-ocean-100 pt-4 dark:border-ocean-800">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditIssue(selectedIssue)}
+                  className="flex items-center gap-1 rounded-lg border border-ocean-200 bg-ocean-50 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-100 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
+                >
+                  <Pencil className="h-3 w-3" /> Edit Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingIssueId(selectedIssue.id)}
+                  className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+                >
+                  <Trash2 className="h-3 w-3" /> Dismiss / Delete
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ocean-500 font-mono hidden sm:inline">
+                  Coordinator: {session.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIssue(null)}
+                  className="rounded-lg bg-ocean-900 px-4 py-2 text-xs font-semibold text-white hover:bg-ocean-800 dark:bg-white dark:text-ocean-950"
+                >
+                  Close Drawer
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1434,17 +2026,11 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                     },
                   ],
                 };
-                setInitiativesList([newInit, ...initiativesList]);
+                const next = saveAdminInitiative(newInit, session.name);
+                setInitiativesList(next);
                 setNewInitiativeModalOpen(false);
                 setInitTitle("");
                 setInitSummary("");
-                addAuditEntry({
-                  actor: session.name,
-                  action: "INITIATIVE_CREATED",
-                  entityType: "INITIATIVE",
-                  entityId: newInit.id,
-                  details: `Created new initiative: "${newInit.title}" (Budget: GHS ${newInit.budget.toLocaleString()})`,
-                });
                 showToast(`Created initiative "${newInit.title}"`);
               }}
               className="mt-4 space-y-3.5 text-xs"
@@ -1784,6 +2370,814 @@ export function AdminDashboard({ session }: { session: LocalSession }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. NEW CIVIC REPORT MODAL (CREATE ISSUE) */}
+      {newIssueModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setNewIssueModalOpen(false)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">File New Civic Community Report</h3>
+              <button onClick={() => setNewIssueModalOpen(false)} className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateIssueSubmit} className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Issue Title / Subject *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Broken Culvert on Dabala Junction Access Road"
+                  value={issueTitle}
+                  onChange={(e) => setIssueTitle(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={issueCategory}
+                    onChange={(e) => setIssueCategory(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="roads">Roads &amp; Access Culverts</option>
+                    <option value="water">Clean Water &amp; Boreholes</option>
+                    <option value="health">Healthcare &amp; CHPS Clinics</option>
+                    <option value="education">Schools &amp; Learning Facilities</option>
+                    <option value="sanitation">Drainage &amp; Sanitation</option>
+                    <option value="other">Public Safety &amp; Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Urgency Level *
+                  </label>
+                  <select
+                    value={issueUrgency}
+                    onChange={(e) => setIssueUrgency(e.target.value as UrgencyLevel)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="CRITICAL">CRITICAL (Immediate safety hazard)</option>
+                    <option value="HIGH">HIGH (Urgent repairs needed)</option>
+                    <option value="MEDIUM">MEDIUM (Moderate disruption)</option>
+                    <option value="LOW">LOW (Long-term improvement)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Community / Area *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Dabala"
+                    value={issueCommunity}
+                    onChange={(e) => setIssueCommunity(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Town / Landmark *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Near Agorkpo CHPS Compound"
+                    value={issueTown}
+                    onChange={(e) => setIssueTown(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Reporting Citizen Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kofi Mensah"
+                    value={issueName}
+                    onChange={(e) => setIssueName(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Contact Phone
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="+233 24 000 0000"
+                    value={issuePhone}
+                    onChange={(e) => setIssuePhone(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Field Narrative / Description *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Detail the scope of damage, affected households, road access blockage..."
+                  value={issueDesc}
+                  onChange={(e) => setIssueDesc(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setNewIssueModalOpen(false)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  File Civic Report
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. EDIT ISSUE MODAL (UPDATE ISSUE) */}
+      {editingIssue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setEditingIssue(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Edit Community Issue Details</h3>
+              <button onClick={() => setEditingIssue(null)} className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditIssue} className="mt-4 space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Issue Title *
+                </label>
+                <input
+                  id="edit-issue-title"
+                  type="text"
+                  required
+                  value={editIssueTitle}
+                  onChange={(e) => setEditIssueTitle(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={editIssueCategory}
+                    onChange={(e) => setEditIssueCategory(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="roads">Roads</option>
+                    <option value="water">Water</option>
+                    <option value="health">Health</option>
+                    <option value="education">Education</option>
+                    <option value="sanitation">Sanitation</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Urgency
+                  </label>
+                  <select
+                    value={editIssueUrgency}
+                    onChange={(e) => setEditIssueUrgency(e.target.value as UrgencyLevel)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="CRITICAL">CRITICAL</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="LOW">LOW</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Status
+                  </label>
+                  <select
+                    id="edit-issue-status"
+                    value={editIssueStatus}
+                    onChange={(e) => setEditIssueStatus(e.target.value as SurveyStatus)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="SUBMITTED">SUBMITTED</option>
+                    <option value="IN_REVIEW">IN REVIEW</option>
+                    <option value="IN_PROGRESS">IN PROGRESS</option>
+                    <option value="RESOLVED">RESOLVED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Community / Area
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editIssueCommunity}
+                    onChange={(e) => setEditIssueCommunity(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Town / Landmark
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editIssueTown}
+                    onChange={(e) => setEditIssueTown(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Field Narrative / Scope
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editIssueDesc}
+                  onChange={(e) => setEditIssueDesc(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingIssue(null)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 9. DELETE ISSUE CONFIRM MODAL */}
+      {deletingIssueId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setDeletingIssueId(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-2xl dark:border-rose-900 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-ocean-950 dark:text-white">Dismiss / Delete Issue?</h3>
+                <p className="text-xs text-ocean-600 dark:text-ocean-400">
+                  Are you sure you want to permanently dismiss this civic report? This action is logged to the district audit trail.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingIssueId(null)}
+                className="rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+              >
+                Keep Report
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteIssue(deletingIssueId)}
+                className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-500 shadow-sm"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 10. NEW VOLUNTEER HOURS MODAL (CREATE VOLUNTEER ENTRY) */}
+      {newVolunteerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setNewVolunteerModalOpen(false)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Log Field Volunteer Service Hours</h3>
+              <button onClick={() => setNewVolunteerModalOpen(false)} className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateVolunteerSubmit} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Volunteer Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Delali Agbavitor"
+                  value={volName}
+                  onChange={(e) => setVolName(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Hours Served *
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    required
+                    value={volHours}
+                    onChange={(e) => setVolHours(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Service Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={volDate}
+                    onChange={(e) => setVolDate(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Initiative / Program Title
+                </label>
+                <input
+                  type="text"
+                  value={volSupervisor}
+                  onChange={(e) => setVolSupervisor(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Field Service Description *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="e.g. Assisted mobile screening unit in Agorkpo; registered 45 elderly citizens."
+                  value={volDesc}
+                  onChange={(e) => setVolDesc(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setNewVolunteerModalOpen(false)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Service Hours
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 11. EDIT VOLUNTEER HOURS MODAL */}
+      {editingVolunteer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setEditingVolunteer(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Edit Volunteer Hours Record</h3>
+              <button onClick={() => setEditingVolunteer(null)} className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditVolunteer} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Volunteer Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editVolName}
+                  onChange={(e) => setEditVolName(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Hours Served *
+                  </label>
+                  <input
+                    id="edit-vol-hours"
+                    type="number"
+                    min={1}
+                    required
+                    value={editVolHours}
+                    onChange={(e) => setEditVolHours(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Service Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editVolDate}
+                    onChange={(e) => setEditVolDate(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Initiative / Program Title
+                </label>
+                <input
+                  type="text"
+                  value={editVolSupervisor}
+                  onChange={(e) => setEditVolSupervisor(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Field Service Description *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editVolDesc}
+                  onChange={(e) => setEditVolDesc(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="editVolApprovedCheck"
+                  checked={editVolApproved}
+                  onChange={(e) => setEditVolApproved(e.target.checked)}
+                  className="rounded border-ocean-300 text-amber-500 focus:ring-amber-400"
+                />
+                <label htmlFor="editVolApprovedCheck" className="text-ocean-700 dark:text-ocean-300 select-none">
+                  Approved and verified by District Coordinator
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingVolunteer(null)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 12. DELETE VOLUNTEER CONFIRM MODAL */}
+      {deletingVolunteerId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setDeletingVolunteerId(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-2xl dark:border-rose-900 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-ocean-950 dark:text-white">Delete Hours Record?</h3>
+                <p className="text-xs text-ocean-600 dark:text-ocean-400">
+                  Are you sure you want to delete this volunteer hours entry? This will adjust the verified ledger.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingVolunteerId(null)}
+                className="rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteVolunteer(deletingVolunteerId)}
+                className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-500 shadow-sm"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 13. EDIT INITIATIVE MODAL (UPDATE INITIATIVE) */}
+      {editingInitiative && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setEditingInitiative(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">Edit Civic Initiative</h3>
+              <button onClick={() => setEditingInitiative(null)} className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditInitiative} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Initiative Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editInitTitle}
+                  onChange={(e) => setEditInitTitle(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={editInitCategory}
+                    onChange={(e) => setEditInitCategory(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="Community Infrastructure">Infrastructure</option>
+                    <option value="Youth Empowerment">Youth Empowerment</option>
+                    <option value="Civic Education">Civic Education</option>
+                    <option value="Environmental Sanitation">Sanitation &amp; Ecology</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Target Budget (GHS) *
+                  </label>
+                  <input
+                    id="edit-init-budget"
+                    type="number"
+                    required
+                    value={editInitBudget}
+                    onChange={(e) => setEditInitBudget(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={editInitLocation}
+                    onChange={(e) => setEditInitLocation(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editInitStatus}
+                    onChange={(e) => setEditInitStatus(e.target.value as any)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="UPCOMING">UPCOMING</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Summary &amp; Community Impact
+                </label>
+                <textarea
+                  rows={3}
+                  value={editInitSummary}
+                  onChange={(e) => setEditInitSummary(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingInitiative(null)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 14. DELETE INITIATIVE CONFIRM MODAL */}
+      {deletingInitiativeId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setDeletingInitiativeId(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-2xl dark:border-rose-900 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-ocean-950 dark:text-white">Delete Initiative?</h3>
+                <p className="text-xs text-ocean-600 dark:text-ocean-400">
+                  Are you sure you want to remove this project? This action is logged to the system audit trail.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingInitiativeId(null)}
+                className="rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteInitiative(deletingInitiativeId)}
+                className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-500 shadow-sm"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 15. DELETE / VOID FINANCIAL TRANSACTION MODAL */}
+      {deletingFinance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setDeletingFinance(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-2xl dark:border-rose-900 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-ocean-950 dark:text-white">
+                  Void {deletingFinance.type === "DONATION" ? "Donation" : "Expenditure"}?
+                </h3>
+                <p className="text-xs text-ocean-600 dark:text-ocean-400">
+                  Are you sure you want to void record &quot;{deletingFinance.entity}&quot;? This entry will be permanently removed from the ledger and logged to the audit trail.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingFinance(null)}
+                className="rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteFinance}
+                className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-500 shadow-sm"
+              >
+                Confirm Void
+              </button>
+            </div>
           </div>
         </div>
       )}

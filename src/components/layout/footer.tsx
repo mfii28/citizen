@@ -33,7 +33,13 @@ const social = [
 export function Footer() {
   const pathname = usePathname();
 
-  if (pathname?.startsWith("/admin")) {
+  if (
+    pathname?.startsWith("/admin") ||
+    pathname === "/user" ||
+    pathname?.startsWith("/user/dashboard") ||
+    pathname === "/volunteer" ||
+    pathname?.startsWith("/volunteer/dashboard")
+  ) {
     return null;
   }
 

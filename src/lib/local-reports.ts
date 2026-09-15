@@ -6,6 +6,7 @@ import type { SurveyReport } from "@/lib/mock-data";
 // not shared with other visitors, until a real backend is connected.
 
 const STORAGE_KEY = "tcp:local-reports";
+export const REPORTS_CHANGED_EVENT = "tcp:reports-changed";
 
 export type LocalSurveyReport = SurveyReport & { source: "local" };
 
@@ -26,13 +27,40 @@ export function addLocalReport(report: Omit<LocalSurveyReport, "source">): Local
   if (typeof window !== "undefined") {
     try {
       const existing = getLocalReports();
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([full, ...existing]));
+      const updated = [full, ...existing];
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent(REPORTS_CHANGED_EVENT, { detail: updated }));
     } catch {
-      // localStorage unavailable (private browsing, quota, etc.) — the form
-      // still shows a success message, it just won't appear on the map.
+      // localStorage unavailable
     }
   }
   return full;
+}
+
+export function updateLocalReport(id: string, updates: Partial<SurveyReport>): LocalSurveyReport[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const existing = getLocalReports();
+    const updated = existing.map((r) => (r.id === id ? { ...r, ...updates } : r));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent(REPORTS_CHANGED_EVENT, { detail: updated }));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+export function deleteLocalReport(id: string): LocalSurveyReport[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const existing = getLocalReports();
+    const updated = existing.filter((r) => r.id !== id);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent(REPORTS_CHANGED_EVENT, { detail: updated }));
+    return updated;
+  } catch {
+    return [];
+  }
 }
 
 export function generateLocalReportId(): string {

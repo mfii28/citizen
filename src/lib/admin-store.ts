@@ -251,6 +251,75 @@ export function updateApplicationStatus(id: string, status: ApplicationStatus, r
   return updated;
 }
 
+export function createApplication(
+  entry: Omit<ApplicantEntry, "id" | "appliedAt" | "status">,
+  actor: string
+): ApplicantEntry[] {
+  const current = getApplications();
+  const created: ApplicantEntry = {
+    ...entry,
+    id: `app-manual-${Date.now()}`,
+    status: "PENDING",
+    appliedAt: new Date().toISOString(),
+  };
+  const updated = [created, ...current];
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "APPLICATION_CREATED",
+    entityType: "APPLICATION",
+    entityId: created.id,
+    details: `Manually added ${created.type} application for ${created.name}`,
+  });
+  return updated;
+}
+
+export function updateApplication(
+  id: string,
+  updates: Partial<ApplicantEntry>,
+  actor: string
+): ApplicantEntry[] {
+  const current = getApplications();
+  const updated = current.map((app) => (app.id === id ? { ...app, ...updates } : app));
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((a) => a.id === id);
+  addAuditEntry({
+    actor,
+    action: "APPLICATION_UPDATED",
+    entityType: "APPLICATION",
+    entityId: id,
+    details: `Updated details for ${target?.name || id}`,
+  });
+  return updated;
+}
+
+export function deleteApplication(id: string, actor: string): ApplicantEntry[] {
+  const current = getApplications();
+  const target = current.find((a) => a.id === id);
+  const updated = current.filter((a) => a.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "APPLICATION_DELETED",
+    entityType: "APPLICATION",
+    entityId: id,
+    details: `Deleted applicant entry for ${target?.name || id}`,
+  });
+  return updated;
+}
+
 export function getAuditLog(): AuditLogEntry[] {
   if (!isBrowser()) return INITIAL_AUDIT_LOG;
   try {
@@ -340,6 +409,48 @@ export function addSubscriber(email: string, source = "Admin Console"): Subscrib
     } catch {}
   }
   return next;
+}
+
+export function toggleSubscriberStatus(id: string, actor: string): SubscriberEntry[] {
+  const current = getSubscribers();
+  const updated = current.map((s) =>
+    s.id === id
+      ? { ...s, status: (s.status === "ACTIVE" ? "UNSUBSCRIBED" : "ACTIVE") as "ACTIVE" | "UNSUBSCRIBED" }
+      : s
+  );
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((s) => s.id === id);
+  addAuditEntry({
+    actor,
+    action: target?.status === "ACTIVE" ? "SUBSCRIBER_ACTIVATED" : "SUBSCRIBER_UNSUBSCRIBED",
+    entityType: "SYSTEM",
+    entityId: id,
+    details: `Updated subscription status for ${target?.email} to ${target?.status}`,
+  });
+  return updated;
+}
+
+export function deleteSubscriber(id: string, actor: string): SubscriberEntry[] {
+  const current = getSubscribers();
+  const target = current.find((s) => s.id === id);
+  const updated = current.filter((s) => s.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.SUBSCRIBERS, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "SUBSCRIBER_DELETED",
+    entityType: "SYSTEM",
+    entityId: id,
+    details: `Removed subscriber ${target?.email || id}`,
+  });
+  return updated;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,6 +545,90 @@ export function saveManualExpenditure(entry: Omit<ManualExpenditureEntry, "id">,
   return next;
 }
 
+export function deleteManualDonation(id: string, actor: string): ManualDonationEntry[] {
+  const current = getManualDonations();
+  const target = current.find((d) => d.id === id);
+  const updated = current.filter((d) => d.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.MANUAL_DONATIONS, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "DONATION_VOIDED",
+    entityType: "FINANCE",
+    entityId: id,
+    details: `Voided offline donation of GHS ${target?.amount.toLocaleString() || 0} from ${target?.donorName || id}`,
+  });
+  return updated;
+}
+
+export function updateManualDonation(
+  id: string,
+  updates: Partial<ManualDonationEntry>,
+  actor: string
+): ManualDonationEntry[] {
+  const current = getManualDonations();
+  const updated = current.map((d) => (d.id === id ? { ...d, ...updates } : d));
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.MANUAL_DONATIONS, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((d) => d.id === id);
+  addAuditEntry({
+    actor,
+    action: "DONATION_UPDATED",
+    entityType: "FINANCE",
+    entityId: id,
+    details: `Updated offline donation record for ${target?.donorName || id}`,
+  });
+  return updated;
+}
+
+export function deleteManualExpenditure(id: string, actor: string): ManualExpenditureEntry[] {
+  const current = getManualExpenditures();
+  const target = current.find((e) => e.id === id);
+  const updated = current.filter((e) => e.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.EXPENDITURES, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "EXPENDITURE_VOIDED",
+    entityType: "FINANCE",
+    entityId: id,
+    details: `Voided expenditure entry of GHS ${target?.amount.toLocaleString() || 0} for ${target?.description || id}`,
+  });
+  return updated;
+}
+
+export function updateManualExpenditure(
+  id: string,
+  updates: Partial<ManualExpenditureEntry>,
+  actor: string
+): ManualExpenditureEntry[] {
+  const current = getManualExpenditures();
+  const updated = current.map((e) => (e.id === id ? { ...e, ...updates } : e));
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.EXPENDITURES, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((e) => e.id === id);
+  addAuditEntry({
+    actor,
+    action: "EXPENDITURE_UPDATED",
+    entityType: "FINANCE",
+    entityId: id,
+    details: `Updated expenditure record for ${target?.description || id}`,
+  });
+  return updated;
+}
+
 // ---------------------------------------------------------------------------
 // 6. Community Events Store
 // ---------------------------------------------------------------------------
@@ -505,6 +700,48 @@ export function saveCommunityEvent(entry: Omit<CommunityEventEntry, "id" | "rsvp
     details: `Scheduled event: "${entry.title}" at ${entry.location}`,
   });
   return next;
+}
+
+export function updateCommunityEvent(
+  id: string,
+  updates: Partial<CommunityEventEntry>,
+  actor: string
+): CommunityEventEntry[] {
+  const current = getCommunityEvents();
+  const updated = current.map((e) => (e.id === id ? { ...e, ...updates } : e));
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((e) => e.id === id);
+  addAuditEntry({
+    actor,
+    action: "EVENT_UPDATED",
+    entityType: "EVENT",
+    entityId: id,
+    details: `Updated event details for "${target?.title || id}"`,
+  });
+  return updated;
+}
+
+export function deleteCommunityEvent(id: string, actor: string): CommunityEventEntry[] {
+  const current = getCommunityEvents();
+  const target = current.find((e) => e.id === id);
+  const updated = current.filter((e) => e.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "EVENT_DELETED",
+    entityType: "EVENT",
+    entityId: id,
+    details: `Cancelled/deleted event "${target?.title || id}"`,
+  });
+  return updated;
 }
 
 // ---------------------------------------------------------------------------
@@ -606,4 +843,126 @@ export function saveEditorialPost(
     details: `Drafted article: "${entry.title}" (${entry.category})`,
   });
   return next;
+}
+
+export function updateEditorialPost(
+  id: string,
+  updates: Partial<EditorialPostEntry>,
+  actor: string
+): EditorialPostEntry[] {
+  const current = getEditorialPosts();
+  const updated = current.map((p) => (p.id === id ? { ...p, ...updates } : p));
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.BLOG, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((p) => p.id === id);
+  addAuditEntry({
+    actor,
+    action: "POST_UPDATED",
+    entityType: "SYSTEM",
+    entityId: id,
+    details: `Updated editorial article: "${target?.title || id}"`,
+  });
+  return updated;
+}
+
+export function deleteEditorialPost(id: string, actor: string): EditorialPostEntry[] {
+  const current = getEditorialPosts();
+  const target = current.find((p) => p.id === id);
+  const updated = current.filter((p) => p.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.BLOG, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "POST_DELETED",
+    entityType: "SYSTEM",
+    entityId: id,
+    details: `Deleted editorial article: "${target?.title || id}"`,
+  });
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// 8. Initiatives CRUD Store
+// ---------------------------------------------------------------------------
+
+export function getAdminInitiatives(): Initiative[] {
+  if (!isBrowser()) return seedInitiatives;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.INITIATIVES);
+    if (!raw) {
+      window.localStorage.setItem(STORAGE_KEYS.INITIATIVES, JSON.stringify(seedInitiatives));
+      return seedInitiatives;
+    }
+    const parsed = JSON.parse(raw);
+    return parsed.map((item: any) => ({
+      ...item,
+      startDate: item.startDate ? new Date(item.startDate) : null,
+      endDate: item.endDate ? new Date(item.endDate) : null,
+      createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+    }));
+  } catch {
+    return seedInitiatives;
+  }
+}
+
+export function saveAdminInitiative(entry: Initiative, actor: string): Initiative[] {
+  const current = getAdminInitiatives();
+  const updated = [entry, ...current];
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.INITIATIVES, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "INITIATIVE_CREATED",
+    entityType: "INITIATIVE",
+    entityId: entry.id,
+    details: `Created initiative "${entry.title}" with target budget GHS ${entry.budget.toLocaleString()}`,
+  });
+  return updated;
+}
+
+export function updateAdminInitiative(id: string, updates: Partial<Initiative>, actor: string): Initiative[] {
+  const current = getAdminInitiatives();
+  const updated = current.map((init) => (init.id === id ? { ...init, ...updates } : init));
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.INITIATIVES, JSON.stringify(updated));
+    } catch {}
+  }
+  const target = updated.find((init) => init.id === id);
+  addAuditEntry({
+    actor,
+    action: "INITIATIVE_UPDATED",
+    entityType: "INITIATIVE",
+    entityId: id,
+    details: `Updated initiative details for "${target?.title || id}"`,
+  });
+  return updated;
+}
+
+export function deleteAdminInitiative(id: string, actor: string): Initiative[] {
+  const current = getAdminInitiatives();
+  const target = current.find((init) => init.id === id);
+  const updated = current.filter((init) => init.id !== id);
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.INITIATIVES, JSON.stringify(updated));
+    } catch {}
+  }
+  addAuditEntry({
+    actor,
+    action: "INITIATIVE_DELETED",
+    entityType: "INITIATIVE",
+    entityId: id,
+    details: `Deleted initiative "${target?.title || id}"`,
+  });
+  return updated;
 }

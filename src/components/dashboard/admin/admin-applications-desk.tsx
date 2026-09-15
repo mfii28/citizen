@@ -15,10 +15,17 @@ import {
   Filter,
   Download,
   AlertCircle,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
 import {
   getApplications,
   updateApplicationStatus,
+  createApplication,
+  updateApplication,
+  deleteApplication,
   type ApplicantEntry,
   type ApplicationStatus,
   type ApplicationType,
@@ -40,6 +47,32 @@ export function AdminApplicationsDesk({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantEntry | null>(null);
 
+  // Create modal state
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("+233 ");
+  const [newType, setNewType] = useState<ApplicationType>("VOLUNTEER");
+  const [newOrg, setNewOrg] = useState("");
+  const [newCommunity, setNewCommunity] = useState("Sogakope");
+  const [newSkills, setNewSkills] = useState("");
+  const [newStatement, setNewStatement] = useState("");
+
+  // Edit modal state
+  const [editingApplicant, setEditingApplicant] = useState<ApplicantEntry | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editType, setEditType] = useState<ApplicationType>("VOLUNTEER");
+  const [editOrg, setEditOrg] = useState("");
+  const [editCommunity, setEditCommunity] = useState("");
+  const [editSkills, setEditSkills] = useState("");
+  const [editStatement, setEditStatement] = useState("");
+  const [editStatus, setEditStatus] = useState<ApplicationStatus>("PENDING");
+
+  // Delete confirm state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const handleStatusChange = (id: string, newStatus: ApplicationStatus) => {
     const updated = updateApplicationStatus(id, newStatus, coordinatorName);
     setApplications(updated);
@@ -56,6 +89,85 @@ export function AdminApplicationsDesk({
         ? `Approved application for ${applications.find((a) => a.id === id)?.name}`
         : `Rejected application for ${applications.find((a) => a.id === id)?.name}`
     );
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim() || !newEmail.trim()) return;
+
+    const next = createApplication(
+      {
+        name: newName,
+        email: newEmail,
+        phone: newPhone,
+        type: newType,
+        organisation: newOrg.trim() || undefined,
+        community: newCommunity,
+        skillsOrFocus: newSkills || "General Community Service",
+        statement: newStatement || "Registered via District Coordinator Desk.",
+      },
+      coordinatorName
+    );
+    setApplications(next);
+    setIsCreateOpen(false);
+    setNewName("");
+    setNewEmail("");
+    setNewPhone("+233 ");
+    setNewOrg("");
+    setNewSkills("");
+    setNewStatement("");
+    onNotify(`Manually enrolled ${newName} into civic registry`);
+  };
+
+  const handleOpenEdit = (app: ApplicantEntry) => {
+    setEditingApplicant(app);
+    setEditName(app.name);
+    setEditEmail(app.email);
+    setEditPhone(app.phone);
+    setEditType(app.type);
+    setEditOrg(app.organisation || "");
+    setEditCommunity(app.community);
+    setEditSkills(app.skillsOrFocus);
+    setEditStatement(app.statement);
+    setEditStatus(app.status);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingApplicant) return;
+
+    const next = updateApplication(
+      editingApplicant.id,
+      {
+        name: editName,
+        email: editEmail,
+        phone: editPhone,
+        type: editType,
+        organisation: editOrg.trim() || undefined,
+        community: editCommunity,
+        skillsOrFocus: editSkills,
+        statement: editStatement,
+        status: editStatus,
+      },
+      coordinatorName
+    );
+    setApplications(next);
+    if (selectedApplicant && selectedApplicant.id === editingApplicant.id) {
+      const updatedItem = next.find((a) => a.id === editingApplicant.id) || null;
+      setSelectedApplicant(updatedItem);
+    }
+    setEditingApplicant(null);
+    onNotify(`Updated details for ${editName}`);
+  };
+
+  const handleDelete = (id: string) => {
+    const next = deleteApplication(id, coordinatorName);
+    setApplications(next);
+    if (selectedApplicant && selectedApplicant.id === id) {
+      setSelectedApplicant(null);
+    }
+    setDeletingId(null);
+    onNotify("Application deleted and archived");
   };
 
   const handleExport = () => {
@@ -112,13 +224,22 @@ export function AdminApplicationsDesk({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleExport}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-1.5 text-xs font-semibold text-ocean-800 shadow-xs hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200 dark:hover:bg-ocean-800"
-        >
-          <Download className="h-3.5 w-3.5 text-ocean-500" /> Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ocean-200 bg-white px-3 py-1.5 text-xs font-semibold text-ocean-800 shadow-xs hover:bg-ocean-50 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200 dark:hover:bg-ocean-800"
+          >
+            <Download className="h-3.5 w-3.5 text-ocean-500" /> Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-ocean-950 shadow-xs hover:bg-amber-400"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Applicant Manually
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search */}
@@ -178,7 +299,7 @@ export function AdminApplicationsDesk({
           <table className="w-full text-left text-xs">
             <thead className="border-b border-ocean-100 bg-ocean-50/70 font-semibold uppercase tracking-wider text-ocean-500 dark:border-ocean-800/80 dark:bg-ocean-900/50 dark:text-ocean-400">
               <tr>
-                <th className="px-4 py-3">Applicant & Role</th>
+                <th className="px-4 py-3">Applicant &amp; Role</th>
                 <th className="px-4 py-3">Community / Area</th>
                 <th className="px-4 py-3">Skills / Focus</th>
                 <th className="px-4 py-3">Status</th>
@@ -245,6 +366,15 @@ export function AdminApplicationsDesk({
                           <Eye className="h-3.5 w-3.5" /> Inspect
                         </button>
 
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(app)}
+                          title="Edit Applicant"
+                          className="rounded-md border border-ocean-200 bg-white p-1 text-ocean-600 hover:border-amber-500 hover:text-amber-600 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-300"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+
                         {app.status === "PENDING" && (
                           <>
                             <button
@@ -265,6 +395,15 @@ export function AdminApplicationsDesk({
                             </button>
                           </>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingId(app.id)}
+                          title="Delete Applicant"
+                          className="rounded-md border border-rose-500/20 bg-rose-500/10 p-1 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -350,14 +489,14 @@ export function AdminApplicationsDesk({
               )}
             </div>
 
-            <div className="mt-6 flex items-center justify-between border-t border-ocean-100 pt-4 dark:border-ocean-800">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-ocean-100 pt-4 dark:border-ocean-800">
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => handleStatusChange(selectedApplicant.id, "APPROVED")}
                   className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
                 >
-                  Approve Application
+                  Approve
                 </button>
                 <button
                   type="button"
@@ -366,14 +505,388 @@ export function AdminApplicationsDesk({
                 >
                   Reject
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenEdit(selectedApplicant);
+                  }}
+                  className="flex items-center gap-1 rounded-lg border border-ocean-200 bg-ocean-50 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-100 dark:border-ocean-700 dark:bg-ocean-900 dark:text-ocean-200"
+                >
+                  <Pencil className="h-3 w-3" /> Edit
+                </button>
               </div>
 
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletingId(selectedApplicant.id)}
+                  className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
+                >
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedApplicant(null)}
+                  className="rounded-lg bg-ocean-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-ocean-800 dark:bg-white dark:text-ocean-950"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Applicant Manually Modal (CREATE) */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setIsCreateOpen(false)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">
+                Add Applicant / Partner Manually
+              </h3>
               <button
                 type="button"
-                onClick={() => setSelectedApplicant(null)}
-                className="rounded-lg bg-ocean-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-ocean-800 dark:bg-white dark:text-ocean-950"
+                onClick={() => setIsCreateOpen(false)}
+                className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white"
               >
-                Done
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="mt-4 space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Kwabena Mensah"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@domain.com"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="+233 24 123 4567"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Application Type *
+                  </label>
+                  <select
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value as ApplicationType)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="VOLUNTEER">Volunteer</option>
+                    <option value="AMBASSADOR">Ambassador</option>
+                    <option value="PARTNER">Institutional Partner</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Community / Town
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dabala, Sogakope"
+                    value={newCommunity}
+                    onChange={(e) => setNewCommunity(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Organisation (If Partner)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Volta Youth Trust"
+                    value={newOrg}
+                    onChange={(e) => setNewOrg(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Skills / Focus Areas
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Healthcare, Literacy, Sanitation, IT"
+                  value={newSkills}
+                  onChange={(e) => setNewSkills(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Statement / Notes
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Notes on applicant background, pledge, or partnership scope..."
+                  value={newStatement}
+                  onChange={(e) => setNewStatement(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Applicant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Applicant Modal (UPDATE) */}
+      {editingApplicant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setEditingApplicant(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-ocean-100 bg-white p-6 shadow-2xl dark:border-ocean-800 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-ocean-100 pb-3 dark:border-ocean-800">
+              <h3 className="text-base font-bold text-ocean-950 dark:text-white">
+                Edit Applicant Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingApplicant(null)}
+                className="rounded p-1 text-ocean-400 hover:text-ocean-700 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="mt-4 space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Role Type
+                  </label>
+                  <select
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value as ApplicationType)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="VOLUNTEER">Volunteer</option>
+                    <option value="AMBASSADOR">Ambassador</option>
+                    <option value="PARTNER">Partner</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as ApplicationStatus)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  >
+                    <option value="PENDING">PENDING</option>
+                    <option value="APPROVED">APPROVED</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Community / Town
+                  </label>
+                  <input
+                    type="text"
+                    value={editCommunity}
+                    onChange={(e) => setEditCommunity(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                    Organisation (If Partner)
+                  </label>
+                  <input
+                    type="text"
+                    value={editOrg}
+                    onChange={(e) => setEditOrg(e.target.value)}
+                    className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Skills / Focus
+                </label>
+                <input
+                  type="text"
+                  value={editSkills}
+                  onChange={(e) => setEditSkills(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-ocean-700 dark:text-ocean-300 mb-1">
+                  Statement
+                </label>
+                <textarea
+                  rows={3}
+                  value={editStatement}
+                  onChange={(e) => setEditStatement(e.target.value)}
+                  className="w-full rounded-lg border border-ocean-200 bg-white p-2 text-ocean-900 focus:border-amber-500 focus:outline-none dark:border-ocean-700 dark:bg-ocean-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-ocean-100 dark:border-ocean-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingApplicant(null)}
+                  className="rounded-lg border border-ocean-200 px-3.5 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-amber-500 px-4 py-1.5 text-xs font-bold text-ocean-950 hover:bg-amber-400"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal (DELETE) */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setDeletingId(null)}
+            className="fixed inset-0 bg-ocean-950/60 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-rose-200 bg-white p-6 shadow-2xl dark:border-rose-900 dark:bg-ocean-950 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-ocean-950 dark:text-white">Delete Applicant?</h3>
+                <p className="text-xs text-ocean-600 dark:text-ocean-400">
+                  Are you sure you want to permanently remove this record? This action will be logged in the audit trail.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingId(null)}
+                className="rounded-lg border border-ocean-200 px-3 py-1.5 text-xs font-semibold text-ocean-700 hover:bg-ocean-50 dark:border-ocean-700 dark:text-ocean-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(deletingId)}
+                className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-500 shadow-sm"
+              >
+                Confirm Delete
               </button>
             </div>
           </div>
